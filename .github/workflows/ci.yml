@@ -1,0 +1,45 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies (reproducible, lockfile-based)
+        run: npm ci
+
+      # No "test" script exists in package.json yet (vitest is installed but unconfigured —
+      # no vitest config, no test files). Intentionally not inventing one here; add a real
+      # `npm test` step once tests exist.
+
+      - name: TypeScript + Vite production build
+        run: npm run build
+
+      # Temporary gate: 8 documented high-severity findings remain after a controlled
+      # remediation pass (see FRONTEND_DEPENDENCY_AUDIT.md), including xlsx with no patched
+      # version published to the npm registry. Only fail CI on critical findings for now so the
+      # pipeline stays actionable; do not silently widen this without re-auditing.
+      - name: Dependency audit gate (critical only)
+        run: npm audit --audit-level=critical
+
+      - name: Upload production build
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist-${{ github.sha }}
+          path: dist
+          retention-days: 3
+          if-no-files-found: error
