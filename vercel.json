@@ -2,15 +2,19 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "http://charitha.runasp.net/api/:path*"
+      "destination": "http://janasiri-staging.runasp.net/api/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "http://janasiri-staging.runasp.net/health"
     },
     {
       "source": "/hubs/:path*",
-      "destination": "http://charitha.runasp.net/hubs/:path*"
+      "destination": "http://janasiri-staging.runasp.net/hubs/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "http://charitha.runasp.net/uploads/:path*"
+      "destination": "http://janasiri-staging.runasp.net/uploads/:path*"
     },
     {
       "source": "/(.*)",
