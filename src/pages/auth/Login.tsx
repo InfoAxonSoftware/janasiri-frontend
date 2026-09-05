@@ -1,14 +1,30 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { Eye, EyeOff, Loader2, LogIn, MapPin, Phone, Building2 } from 'lucide-react';
-// useSystemBranding epa, api dynamic nethuwa Janasiri ekatama hdmu.
+import {
+  Eye,
+  EyeOff,
+  Loader2,
+  LogIn,
+  ShieldCheck,
+  BarChart3,
+  Package,
+} from 'lucide-react';
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isLoading, error, isAuthenticated, user, clearError } = useAuth();
+
+  const {
+    login,
+    isLoading,
+    error,
+    isAuthenticated,
+    user,
+    clearError,
+  } = useAuth();
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,6 +36,7 @@ export default function Login() {
         Customer: '/shop',
         SalesCoordinator: '/coordinator',
       };
+
       navigate(routes[user.role] || '/login');
     }
   }, [isAuthenticated, user, navigate]);
@@ -30,181 +47,461 @@ export default function Login() {
     await login(username, password);
   };
 
-  // Primary Brand Color from the new logo
   const brandPrimary = '#C15B3E';
 
   return (
     <div className="min-h-screen w-full flex bg-white text-slate-900 font-sans">
-      
-      {/* -------------------- LEFT SIDE: Business Branding & Details -------------------- */}
+
+      {/* =========================
+          LEFT SIDE
+      ========================== */}
       <div className="hidden lg:flex lg:w-3/5 bg-slate-50 border-r border-slate-100 flex-col p-16 justify-between relative overflow-hidden">
-        
-        {/* Subtle background pattern (dot grid) */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
-        
-        <div className="relative z-10 space-y-12">
-          {/* Main Logo & Title */}
-          <div className="flex items-center gap-5">
-            <img src="/logo.png" alt="Janasiri Logo" className="w-20 h-20 object-contain rounded-full shadow-sm" />
+
+        {/* Background pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.035]"
+          style={{
+            backgroundImage:
+              'radial-gradient(#000 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
+          }}
+        />
+
+        <div className="relative z-10 flex flex-col justify-center flex-1">
+
+          {/* Demo Branding */}
+          <div className="flex items-center gap-5 mb-14">
+
+            <div
+              className="w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg"
+              style={{ backgroundColor: brandPrimary }}
+            >
+              <BarChart3
+                className="w-10 h-10 text-white"
+                strokeWidth={2.2}
+              />
+            </div>
+
             <div className="flex flex-col">
-              <h1 className="text-3xl font-extrabold tracking-tighter text-slate-950">
-                JANASIRI <span style={{ color: brandPrimary }}>DISTRIBUTORS</span>
+              <h1 className="text-3xl font-extrabold tracking-tight text-slate-950">
+                DISTRIBUTION
               </h1>
-              <p className="text-sm font-semibold text-slate-600 uppercase tracking-widest -mt-1">(PVT) LTD</p>
+
+              <p
+                className="text-sm font-bold uppercase tracking-[0.25em]"
+                style={{ color: brandPrimary }}
+              >
+                Management System
+              </p>
             </div>
           </div>
 
-          <blockquote className="space-y-3">
-            <p className="text-5xl font-bold text-slate-950 leading-tight tracking-tight">
-              Sri Lanka's Trusted Food Service Partner.
-            </p>
-            <p className="text-lg text-slate-600 max-w-xl">
-              Simplifying supply chains for thousands of businesses across the island. Reliable wholesale distribution management, optimized.
-            </p>
-          </blockquote>
+          {/* Main Heading */}
+          <div className="space-y-5 max-w-2xl">
 
-          {/* Contact Details from Card */}
-          <div className="grid grid-cols-2 gap-x-10 gap-y-8 pt-6 border-t border-slate-200">
-            <InfoBlock icon={MapPin} title="Registered Office" details="No. 205, Wattarantenna Passage, Kandy." />
-            <InfoBlock icon={MapPin} title="Warehouse Central" details="No. 02, Mawilmada Road, Kandy." />
-            <InfoBlock icon={MapPin} title="Warehouse West" details="No. 41A, Gnanathilaka Road, Mount Lavinia." />
-            <InfoBlock icon={Building2} title="Contact & VAT" details="+94 81 495 0206 | TP / Hotline | VAT: 114608394-7000" />
+            <span
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border"
+              style={{
+                color: brandPrimary,
+                borderColor: `${brandPrimary}40`,
+                backgroundColor: `${brandPrimary}08`,
+              }}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              Demo Environment
+            </span>
+
+            <h2 className="text-5xl font-extrabold leading-[1.08] tracking-tight text-slate-950">
+              Smarter distribution.
+              <br />
+              <span style={{ color: brandPrimary }}>
+                Better business.
+              </span>
+            </h2>
+
+            <p className="text-lg leading-8 text-slate-600 max-w-xl">
+              A modern distribution management platform designed to
+              simplify sales, customers, products, orders and business
+              operations from one place.
+            </p>
+          </div>
+
+          {/* Feature Cards */}
+          <div className="grid grid-cols-3 gap-4 mt-14 max-w-2xl">
+
+            <FeatureCard
+              icon={Package}
+              title="Inventory"
+              description="Products & stock"
+            />
+
+            <FeatureCard
+              icon={BarChart3}
+              title="Analytics"
+              description="Reports & insights"
+            />
+
+            <FeatureCard
+              icon={ShieldCheck}
+              title="Secure"
+              description="Role-based access"
+            />
+
           </div>
         </div>
 
         {/* Footer */}
-        <div className="relative z-10 flex justify-between items-center text-xs text-slate-400 pt-8 border-t border-slate-100">
-          <p>&copy; {new Date().getFullYear()} Janasiri Distributors (Pvt) Ltd. All rights reserved.</p>
-          <a href="https://janasiri.com" target="_blank" rel="noreferrer" className="hover:text-slate-600">WWW.JANASIRI.COM</a>
+        <div className="relative z-10 flex items-center justify-between pt-8 border-t border-slate-200">
+
+          <p className="text-xs text-slate-400">
+            Demo System • {new Date().getFullYear()}
+          </p>
+
+          <p className="text-xs font-medium text-slate-400">
+            Distribution Management Platform
+          </p>
+
         </div>
       </div>
 
-      {/* -------------------- RIGHT SIDE: Login Form -------------------- */}
+      {/* =========================
+          RIGHT SIDE
+      ========================== */}
       <div className="w-full lg:w-2/5 flex items-center justify-center p-8 md:p-12 lg:p-16">
-        <div className="w-full max-w-md space-y-10 animate-fade-in-scale">
-          
-          {/* Mobile Logo Visibility (hidden on large screens) */}
-          <div className="lg:hidden text-center flex flex-col items-center mb-10 gap-4">
-             <img src="/logo.png" alt="Janasiri Logo" className="w-16 h-16 object-contain rounded-full shadow-sm" />
-             <div className="flex flex-col">
-              <h1 className="text-2xl font-extrabold tracking-tighter text-slate-950">
-                JANASIRI <span style={{ color: brandPrimary }}>DISTRIBUTORS</span>
-              </h1>
-              <p className="text-xs font-semibold text-slate-600 uppercase tracking-widest -mt-1">(PVT) LTD</p>
+
+        <div className="w-full max-w-md">
+
+          {/* Mobile Branding */}
+          <div className="lg:hidden text-center mb-10">
+
+            <div
+              className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center shadow-lg mb-4"
+              style={{ backgroundColor: brandPrimary }}
+            >
+              <BarChart3
+                className="w-8 h-8 text-white"
+                strokeWidth={2.2}
+              />
             </div>
+
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-950">
+              DISTRIBUTION
+            </h1>
+
+            <p
+              className="text-xs font-bold uppercase tracking-[0.22em] mt-1"
+              style={{ color: brandPrimary }}
+            >
+              Management System
+            </p>
+
           </div>
 
-          {/* Welcome Text */}
-          <div className="space-y-2">
-            <h2 className="text-3xl font-extrabold tracking-tighter text-slate-950">Welcome back</h2>
-            <p className="text-base text-slate-600">Sign in to your wholesale management portal.</p>
+          {/* Login Heading */}
+          <div className="space-y-3 mb-9">
+
+            <span
+              className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider"
+              style={{ color: brandPrimary }}
+            >
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: brandPrimary }}
+              />
+              Demo Access
+            </span>
+
+            <h2 className="text-3xl font-extrabold tracking-tight text-slate-950">
+              Welcome back
+            </h2>
+
+            <p className="text-base text-slate-500">
+              Sign in to access the management portal.
+            </p>
           </div>
 
+          {/* Error */}
           {error && (
-            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm font-medium text-red-800 animate-scale-in">
-              <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
-              {error}
+            <div className="flex items-start gap-3 px-4 py-3.5 mb-6 rounded-xl bg-red-50 border border-red-200 text-sm font-medium text-red-800 animate-scale-in">
+
+              <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 mt-1.5" />
+
+              <span>{error}</span>
+
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-7">
-            {/* Username Input */}
+          {/* Login Form */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+
+            {/* Username */}
             <div className="space-y-2">
-              <label htmlFor="username" className="block text-sm font-semibold text-slate-700">
+
+              <label
+                htmlFor="username"
+                className="block text-sm font-semibold text-slate-700"
+              >
                 Username
               </label>
+
               <input
                 id="username"
                 name="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Ex: jdist_coordinator"
+                placeholder="Enter your username"
                 required
-                className="w-full px-5 py-3.5 text-sm border border-slate-200 rounded-xl bg-white text-slate-900 placeholder:text-slate-400 outline-none transition duration-150 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                autoComplete="username"
+                className="
+                  w-full
+                  px-4
+                  py-3.5
+                  text-sm
+                  border
+                  border-slate-200
+                  rounded-xl
+                  bg-white
+                  text-slate-900
+                  placeholder:text-slate-400
+                  outline-none
+                  transition-all
+                  duration-200
+                  focus:border-slate-400
+                  focus:ring-4
+                  focus:ring-slate-100
+                  hover:border-slate-300
+                "
               />
+
             </div>
 
-            {/* Password Input */}
+            {/* Password */}
             <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
+
+              <label
+                htmlFor="password"
+                className="block text-sm font-semibold text-slate-700"
+              >
                 Password
               </label>
+
               <div className="relative">
+
                 <input
                   id="password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+                  placeholder="Enter your password"
                   required
-                  className="w-full px-5 py-3.5 text-sm border border-slate-200 rounded-xl bg-white text-slate-900 placeholder:text-slate-400 outline-none transition duration-150 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                  autoComplete="current-password"
+                  className="
+                    w-full
+                    px-4
+                    py-3.5
+                    pr-12
+                    text-sm
+                    border
+                    border-slate-200
+                    rounded-xl
+                    bg-white
+                    text-slate-900
+                    placeholder:text-slate-400
+                    outline-none
+                    transition-all
+                    duration-200
+                    focus:border-slate-400
+                    focus:ring-4
+                    focus:ring-slate-100
+                    hover:border-slate-300
+                  "
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-600 transition"
+                  className="
+                    absolute
+                    right-3
+                    top-1/2
+                    -translate-y-1/2
+                    p-2
+                    rounded-lg
+                    text-slate-400
+                    hover:text-slate-600
+                    hover:bg-slate-50
+                    transition
+                  "
+                  aria-label={
+                    showPassword
+                      ? 'Hide password'
+                      : 'Show password'
+                  }
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
+
               </div>
+
             </div>
 
-            {/* Sign In Button (Branded Color) */}
+            {/* Sign In */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full font-semibold flex items-center justify-center gap-2.5 px-6 py-4 rounded-xl text-base text-white border-none cursor-pointer transition-all duration-200 shadow-lg disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-xl hover:-translate-y-0.5"
+              className="
+                w-full
+                flex
+                items-center
+                justify-center
+                gap-2.5
+                px-6
+                py-4
+                rounded-xl
+                text-base
+                font-semibold
+                text-white
+                border-none
+                transition-all
+                duration-200
+                disabled:opacity-60
+                disabled:cursor-not-allowed
+                hover:-translate-y-0.5
+                active:translate-y-0
+              "
               style={{
                 backgroundColor: brandPrimary,
-                boxShadow: `0 8px 16px ${brandPrimary}25`, // Add subtle color shadow
+                boxShadow: `0 10px 24px ${brandPrimary}25`,
               }}
             >
+
               {isLoading ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /> Signing in...</>
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Signing in...
+                </>
               ) : (
-                <><LogIn className="w-5 h-5" /> Sign In</>
+                <>
+                  <LogIn className="w-5 h-5" />
+                  Sign In
+                </>
               )}
+
             </button>
+
           </form>
 
-          {/* Registration Section */}
-          <div className="text-center pt-8 border-t border-slate-100">
+          {/* Demo Notice */}
+          <div className="mt-8">
+
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
+
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{
+                  backgroundColor: `${brandPrimary}12`,
+                  color: brandPrimary,
+                }}
+              >
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-slate-800">
+                  Demo Environment
+                </p>
+
+                <p className="text-xs text-slate-500 mt-1 leading-5">
+                  This interface is provided for system demonstration
+                  and evaluation purposes.
+                </p>
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* Registration */}
+          <div className="text-center mt-8 pt-7 border-t border-slate-100">
+
             <p className="text-sm text-slate-500">
               New customer?{' '}
+
               <Link
                 to="/customer-register"
-                className="font-semibold transition hover:underline"
+                className="font-semibold hover:underline transition"
                 style={{ color: brandPrimary }}
               >
                 Apply for an account
               </Link>
             </p>
+
           </div>
+
         </div>
       </div>
     </div>
   );
 }
 
-// Helper component for business info blocks
-interface InfoBlockProps {
+/* =========================
+   Feature Card
+========================= */
+
+interface FeatureCardProps {
   icon: React.ElementType;
   title: string;
-  details: string;
+  description: string;
 }
 
-function InfoBlock({ icon: Icon, title, details }: InfoBlockProps) {
+function FeatureCard({
+  icon: Icon,
+  title,
+  description,
+}: FeatureCardProps) {
   return (
-    <div className="flex items-start gap-3.5">
-      <div className="p-2.5 rounded-xl bg-white border border-slate-100 text-slate-900 shadow-sm mt-1">
-         <Icon className="w-5 h-5" strokeWidth={2.5} />
+    <div className="
+      bg-white
+      border
+      border-slate-200
+      rounded-2xl
+      p-5
+      shadow-sm
+      transition
+      hover:shadow-md
+      hover:-translate-y-0.5
+    ">
+
+      <div className="
+        w-10
+        h-10
+        rounded-xl
+        bg-slate-100
+        flex
+        items-center
+        justify-center
+        mb-4
+      ">
+        <Icon
+          className="w-5 h-5 text-slate-700"
+          strokeWidth={2.2}
+        />
       </div>
-      <div className="flex flex-col">
-        <h4 className="font-bold text-slate-950 text-base">{title}</h4>
-        <p className="text-sm text-slate-600 whitespace-pre-line">{details}</p>
-      </div>
+
+      <h3 className="text-sm font-bold text-slate-900">
+        {title}
+      </h3>
+
+      <p className="text-xs text-slate-500 mt-1 leading-5">
+        {description}
+      </p>
+
     </div>
   );
 }
