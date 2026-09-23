@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { notificationsApi } from '../services/api/notificationsApi';
+import { notificationQueryKeys, notificationsApi } from '../services/api/notificationsApi';
 import type { Notification } from '../types/notification.types';
 
 export type NotificationSectionMap = Record<string, string[]>;
@@ -9,7 +9,7 @@ export function useSectionNotificationBadges(userId: string | undefined, section
   const queryClient = useQueryClient();
 
   const { data } = useQuery({
-    queryKey: ['notifications', userId, 'unread-sections'],
+    queryKey: notificationQueryKeys.list(userId, { page: 1, pageSize: 200, unreadOnly: true }),
     queryFn: () => notificationsApi.getAll({ page: 1, pageSize: 200, unreadOnly: true }).then((r) => r.data.data),
     enabled: !!userId,
   });
@@ -31,7 +31,7 @@ export function useSectionNotificationBadges(userId: string | undefined, section
       await Promise.all(ids.map((id) => notificationsApi.markAsRead(id)));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications', userId] });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all(userId) });
       queryClient.invalidateQueries({ queryKey: ['unread-count', userId] });
     },
   });

@@ -1,3 +1,6 @@
+export type NotificationMetadataValue = string | number | boolean | null;
+export type NotificationMetadata = Record<string, NotificationMetadataValue>;
+
 export interface Notification {
   id: string;
   notificationType: string;
@@ -6,5 +9,5 @@ export interface Notification {
   isRead: boolean;
   readAt?: string;
   createdAt: string;
-  metadata?: Record<string, any>;
+  metadata?: NotificationMetadata;
 }

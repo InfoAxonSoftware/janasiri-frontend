@@ -4,6 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useAuth } from './useAuth';
 import { paymentReportKeys } from '../services/queryKeys/paymentReportKeys';
+import { notificationQueryKeys } from '../services/api/notificationsApi';
+import type { Notification } from '../types/notification.types';
 
 export interface PaymentReportEvent {
   eventType: 'paymentReportCreated' | 'paymentReportStatusChanged' | 'paymentReportTrashed' | 'paymentReportRestored';
@@ -151,10 +153,10 @@ export function useSignalR() {
     const conn = createConnection('notifications');
     notificationConn.current = conn;
 
-    conn.on('ReceiveNotification', (notification: { title: string; message: string }) => {
+    conn.on('ReceiveNotification', (notification: Notification) => {
       toast(notification.message, { icon: '🔔', duration: 5000 });
       // invalidation keys include userId so that cache updates for the current user
-      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all(user?.id) });
       queryClient.invalidateQueries({ queryKey: ['unread-count', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['rep-quick-orders'] });
       queryClient.invalidateQueries({ queryKey: ['rep-quick-quotations'] });
@@ -169,7 +171,7 @@ export function useSignalR() {
       if (customerOrShop) txt += ` for ${customerOrShop}`;
       if (data.actorName) txt += ` by ${data.actorName}`;
       toast.success(txt, { duration: 4000 });
-      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all(user?.id) });
       queryClient.invalidateQueries({ queryKey: ['unread-count', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
@@ -182,7 +184,7 @@ export function useSignalR() {
       let txt = `New ${label} #${data.requestNumber} for ${data.customerName}`;
       if (data.repName) txt += ` by ${data.repName}`;
       toast(txt, { icon: '⚡', duration: 5000 });
-      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all(user?.id) });
       queryClient.invalidateQueries({ queryKey: ['unread-count', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['admin-quick-requests'] });
       queryClient.invalidateQueries({ queryKey: ['admin-quick-orders'] });

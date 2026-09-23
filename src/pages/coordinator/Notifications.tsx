@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { notificationsApi } from '../../services/api/notificationsApi';
+import { notificationQueryKeys, notificationsApi } from '../../services/api/notificationsApi';
 import { Bell, CheckCheck, Circle, Loader2 } from 'lucide-react';
 import type { Notification } from '../../types/notification.types';
 import { useAuth } from '../../hooks/useAuth';
@@ -13,7 +13,7 @@ export default function CoordinatorNotifications() {
   const userId = user?.id;
 
   const { data, isLoading } = useQuery({
-    queryKey: ['notifications', userId, page],
+    queryKey: notificationQueryKeys.list(userId, { page, pageSize: 30 }),
     queryFn: () => notificationsApi.getAll({ page, pageSize: 30 }).then(r => r.data.data),
     enabled: !!userId,
   });
@@ -27,7 +27,7 @@ export default function CoordinatorNotifications() {
   const markReadMut = useMutation({
     mutationFn: (id: string) => notificationsApi.markAsRead(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications', userId] });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all(userId) });
       queryClient.invalidateQueries({ queryKey: ['unread-count', userId] });
     },
   });
@@ -35,7 +35,7 @@ export default function CoordinatorNotifications() {
   const markAllMut = useMutation({
     mutationFn: () => notificationsApi.markAllAsRead(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications', userId] });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all(userId) });
       queryClient.invalidateQueries({ queryKey: ['unread-count', userId] });
     },
   });

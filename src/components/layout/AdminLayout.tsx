@@ -279,12 +279,10 @@ export default function AdminLayout() {
               >
                 <Bell className="w-[18px] h-[18px]" />
 
-                {(unreadCount ?? 0) > 0 ? (
+                {(unreadCount ?? 0) > 0 && (
                   <span className="absolute top-2 right-2 bg-gradient-to-r from-orange-500 to-rose-500 text-white text-[9px] font-bold rounded-full min-w-[18px] h-4 flex items-center justify-center px-1 shadow-lg shadow-orange-500/30 animate-scale-in">
                     {unreadCount}
                   </span>
-                ) : (
-                  <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
                 )}
               </button>
               <NotificationPanel open={showNotifications} onClose={() => setShowNotifications(false)} userId={userId} />
