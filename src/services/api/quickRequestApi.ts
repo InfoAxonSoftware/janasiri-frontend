@@ -8,8 +8,9 @@ export interface QuickRequestDto {
   details: string;
   status: 'Pending' | 'Approved' | 'Rejected' | 'Completed';
   adminNotes?: string | null;
-  repId: string;
+  repId: string | null;
   repName: string;
+  createdBy?: string | null;
   imageUrls: string[];
   createdAt: string;
   updatedAt?: string | null;
@@ -46,6 +47,24 @@ export const quickRequestApi = {
     api.get<{ data: QuickRequestDto }>(`/rep/quick-requests/${id}`),
 
   // Admin
+  adminCreate: (dto: CreateQuickRequestDto) =>
+    api.post<{ data: QuickRequestDto }>('/admin/quick-requests', dto),
+
+  adminUploadImages: (id: string, files: File[]) => {
+    const form = new FormData();
+    files.forEach((file) => form.append('images', file));
+
+    return api.post<{ data: QuickRequestDto }>(
+      `/admin/quick-requests/${id}/images`,
+      form,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      },
+    );
+  },
+
   adminGetAll: (type?: string, status?: string) =>
     api.get<{ data: QuickRequestDto[] }>('/admin/quick-requests', {
       params: { ...(type && { type }), ...(status && { status }) },

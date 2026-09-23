@@ -1,5 +1,5 @@
 ﻿// @ts-nocheck
-import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo, Fragment, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { PrivateImage } from '../../components/common/PrivateImage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -12,7 +12,8 @@ import {
   ShoppingCart, CheckCircle, XCircle, ChevronRight,
   Search, Trash2, X, FileSpreadsheet, FileText,
   SlidersHorizontal, RefreshCw, RotateCcw,
-  ArrowUp, ArrowDown, ArrowUpDown, Check, Download
+  ArrowUp, ArrowDown, ArrowUpDown, Check, Download,
+  Plus, Camera, ImagePlus, Send
 } from 'lucide-react';
 import type { Order, OrderStatus } from '../../types/order.types';
 import { ORDER_STATUSES, FILTER_ORDER_STATUSES } from '../../types/order.types';
@@ -66,6 +67,16 @@ export default function AdminOrders() {
   const [showBulkStatusModal, setShowBulkStatusModal] = useState(false);
   const [bulkStatusValue, setBulkStatusValue] = useState<OrderStatus | ''>('');
   const [quickLightbox, setQuickLightbox] = useState<string | null>(null);
+
+  // Admin Quick Order modal state
+  const [showQuickOrderModal, setShowQuickOrderModal] = useState(false);
+  const [quickCustomerName, setQuickCustomerName] = useState('');
+  const [quickDetails, setQuickDetails] = useState('');
+  const [quickImages, setQuickImages] = useState<File[]>([]);
+  const [quickPreviewUrls, setQuickPreviewUrls] = useState<string[]>([]);
+
+  const quickGalleryRef = useRef<HTMLInputElement>(null);
+  const quickCameraRef = useRef<HTMLInputElement>(null);
 
   const queryClient = useQueryClient();
 
@@ -207,6 +218,136 @@ export default function AdminOrders() {
     onError: () => toast.error('Failed to update'),
   });
 
+  // Admin Quick Orders use the existing QuickRequest model.
+  // They are intentionally not converted into normal Order records.
+  const createAdminQuickOrderMut = useMutation({
+    mutationFn: async () => {
+      const customerName = quickCustomerName.trim();
+      const details = quickDetails.trim();
+
+      if (!customerName) {
+        throw new Error('Customer name is required');
+      }
+
+      if (!details && quickImages.length === 0) {
+        throw new Error('Enter request details or attach an image');
+      }
+
+      const response = await quickRequestApi.adminCreate({
+        type: 'Order',
+        customerName,
+        details: details || 'Image attachment only',
+      });
+
+      const created = response.data.data;
+
+      if (quickImages.length > 0) {
+        await quickRequestApi.adminUploadImages(created.id, quickImages);
+      }
+
+      return created;
+    },
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['admin-quick-orders'],
+      });
+
+      setShowQuickOrderModal(false);
+      setQuickCustomerName('');
+      setQuickDetails('');
+      setQuickImages([]);
+      setQuickPreviewUrls([]);
+
+      toast.success('Quick order created');
+    },
+
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to create quick order',
+      );
+    },
+  });
+
+  const addQuickImages = (files: FileList | null) => {
+    if (!files) return;
+
+    const selected = Array.from(files);
+
+    // Keep this aligned with the backend validation.
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ];
+
+    const valid = selected.filter(
+      (file) =>
+        allowedTypes.includes(file.type) &&
+        file.size <= 5 * 1024 * 1024,
+    );
+
+    if (valid.length < selected.length) {
+      toast.error(
+        'Only JPG, PNG or WEBP images under 5 MB are allowed.',
+      );
+    }
+
+    setQuickImages((current) => [...current, ...valid]);
+
+    valid.forEach((file) => {
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (!result) return;
+
+        setQuickPreviewUrls((current) => [
+          ...current,
+          result,
+        ]);
+      };
+
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeQuickImage = (index: number) => {
+    setQuickImages((current) =>
+      current.filter((_, i) => i !== index),
+    );
+
+    setQuickPreviewUrls((current) =>
+      current.filter((_, i) => i !== index),
+    );
+  };
+
+  const closeQuickOrderModal = () => {
+    if (createAdminQuickOrderMut.isPending) return;
+
+    setShowQuickOrderModal(false);
+    setQuickCustomerName('');
+    setQuickDetails('');
+    setQuickImages([]);
+    setQuickPreviewUrls([]);
+  };
+
+  const submitAdminQuickOrder = () => {
+    if (!quickCustomerName.trim()) {
+      toast.error('Customer name is required');
+      return;
+    }
+
+    if (!quickDetails.trim() && quickImages.length === 0) {
+      toast.error('Enter request details or attach an image');
+      return;
+    }
+
+    createAdminQuickOrderMut.mutate();
+  };
+
   const orders: Order[] = (data?.items || []).filter((o: Order) => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -238,7 +379,7 @@ export default function AdminOrders() {
     let rows = (quickData as any[]).map((r: any) => ({
       _isQuick: true, _quick: r,
       id: r.id, orderNumber: r.requestNumber,
-      customerName: r.customerName, repName: r.repName,
+      customerName: r.customerName, repName: r.repName || 'Admin',
       orderDate: r.createdAt, status: r.status,
       items: [] as any[], totalAmount: 0, isFromApprovedQuotation: false,
     }));
@@ -469,7 +610,7 @@ export default function AdminOrders() {
             ['QUICK ORDER REQUEST'], [],
             ['Request #', qr.requestNumber, 'Date', formatDate(qr.createdAt)],
             ['Customer', qr.customerName, 'Status', qr.status],
-            ['Sales Rep', qr.repName || '—'], [],
+            ['Sales Rep', qr.repName || 'Admin'], [],
             ['Request Details'], [qr.details || '—'],
           ];
           if (qr.adminNotes) { qRows.push([], ['Admin Notes'], [qr.adminNotes]); }
@@ -671,7 +812,7 @@ export default function AdminOrders() {
           doc.setFont('helvetica', 'bold'); doc.text('Customer / Representative', 16, cBY + 6);
           doc.setFont('helvetica', 'normal');
           doc.text('Customer:', 16, cBY + 14); doc.text(qr.customerName || '—', 40, cBY + 14);
-          doc.text('Sales Rep:', 16, cBY + 20); doc.text(qr.repName || '—', 40, cBY + 20);
+          doc.text('Sales Rep:', 16, cBY + 20); doc.text(qr.repName || 'Admin', 40, cBY + 20);
           autoTable(doc, {
             head: [['Request Details']],
             body: [[qr.details || '—']],
@@ -750,6 +891,22 @@ export default function AdminOrders() {
 
             {/* Right buttons */}
             <div className="order-2 sm:order-3 ml-auto sm:ml-0 flex items-center gap-1 shrink-0">
+              {/* Admin Quick Order */}
+              {activeTab === 'active' && (
+                <>
+                  <button
+                    onClick={() => setShowQuickOrderModal(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-violet-600 text-white hover:bg-violet-700 shadow-sm transition-all"
+                    title="Create Quick Order"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Quick Order</span>
+                  </button>
+
+                  <div className="w-px h-5 bg-slate-200 mx-0.5" />
+                </>
+              )}
+
               {/* Filter */}
               <button
                 onClick={() => setFilterPanelOpen(p => !p)}
@@ -994,7 +1151,7 @@ export default function AdminOrders() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-800">{qr.requestNumber}</p>
                         <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">Quick Order</span>
-                        <p className="text-xs text-slate-500 mt-1 truncate">{qr.customerName}{qr.repName ? ` · ${qr.repName}` : ''}</p>
+                        <p className="text-xs text-slate-500 mt-1 truncate">{qr.customerName} · {qr.repName || 'Admin'}</p>
                       </div>
                       <StatusBadge status={qr.status} />
                       <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
@@ -1279,7 +1436,7 @@ export default function AdminOrders() {
                           <span className="text-slate-700 truncate block">{qr.customerName}</span>
                         </td>
                         <td className="px-4 py-3 border-r border-slate-100">
-                          <span className="text-slate-500">{qr.repName || '—'}</span>
+                          <span className="text-slate-500">{qr.repName || 'Admin'}</span>
                         </td>
                         <td className="px-3 py-3 text-center border-r border-slate-100">
                           <span className="text-slate-400">—</span>
@@ -1710,6 +1867,215 @@ export default function AdminOrders() {
         </div>
         </>
       )}
+
+      {/* ── Admin Quick Order modal ─────────────────────────────────────────── */}
+      {showQuickOrderModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+              onClick={closeQuickOrderModal}
+            />
+
+            <div
+              className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-slate-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between gap-4 px-5 py-4 border-b border-slate-100">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 shrink-0 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
+                    <ShoppingCart className="w-5 h-5" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <h2 className="text-base font-bold text-slate-900">
+                      Create Quick Order
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Manually enter an order received from a customer
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeQuickOrderModal}
+                  disabled={createAdminQuickOrderMut.isPending}
+                  className="w-9 h-9 shrink-0 rounded-xl hover:bg-slate-100 flex items-center justify-center transition disabled:opacity-40"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4 text-slate-500" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-5 space-y-5">
+                {/* Customer */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1.5">
+                    Customer / Shop
+                  </label>
+
+                  <input
+                    value={quickCustomerName}
+                    onChange={(e) => setQuickCustomerName(e.target.value)}
+                    placeholder="Enter customer or shop name"
+                    disabled={createAdminQuickOrderMut.isPending}
+                    autoFocus
+                    className="w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-900 outline-none transition focus:bg-white focus:border-violet-400 focus:ring-2 focus:ring-violet-500/15 disabled:opacity-60"
+                  />
+                </div>
+
+                {/* Details */}
+                <div>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Order Details
+                    </label>
+
+                    <span className="text-[10px] text-slate-400">
+                      {quickDetails.length} characters
+                    </span>
+                  </div>
+
+                  <textarea
+                    value={quickDetails}
+                    onChange={(e) => setQuickDetails(e.target.value)}
+                    placeholder="Enter products, quantities, customer notes, delivery information, or any other details from the email..."
+                    rows={8}
+                    disabled={createAdminQuickOrderMut.isPending}
+                    className="w-full resize-y min-h-[180px] px-3.5 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-900 leading-6 outline-none transition focus:bg-white focus:border-violet-400 focus:ring-2 focus:ring-violet-500/15 disabled:opacity-60"
+                  />
+
+                  <p className="mt-1.5 text-[10px] text-slate-400">
+                    Enter whatever was received from the customer. It does not create product line items automatically.
+                  </p>
+                </div>
+
+                {/* Attachments */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Attachments
+                    </label>
+
+                    {quickImages.length > 0 && (
+                      <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-violet-100 text-violet-700">
+                        {quickImages.length} photo{quickImages.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2.5">
+                    {quickPreviewUrls.map((url, index) => (
+                      <div
+                        key={`${url}-${index}`}
+                        className="relative w-24 h-24 rounded-xl"
+                      >
+                        <img
+                          src={url}
+                          alt={`Attachment ${index + 1}`}
+                          className="w-24 h-24 rounded-xl object-cover border border-slate-200"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => removeQuickImage(index)}
+                          disabled={createAdminQuickOrderMut.isPending}
+                          className="absolute -right-2 -top-2 w-7 h-7 rounded-full bg-white border border-slate-200 text-red-500 shadow-md flex items-center justify-center hover:bg-red-50 disabled:opacity-40"
+                          aria-label={`Remove attachment ${index + 1}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={() => quickGalleryRef.current?.click()}
+                      disabled={createAdminQuickOrderMut.isPending}
+                      className="w-24 h-24 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-violet-50 hover:border-violet-400 text-slate-500 hover:text-violet-600 flex flex-col items-center justify-center gap-1 transition disabled:opacity-40"
+                    >
+                      <ImagePlus className="w-5 h-5" />
+                      <span className="text-[10px] font-bold">Gallery</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => quickCameraRef.current?.click()}
+                      disabled={createAdminQuickOrderMut.isPending}
+                      className="w-24 h-24 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-violet-50 hover:border-violet-400 text-slate-500 hover:text-violet-600 flex flex-col items-center justify-center gap-1 transition disabled:opacity-40"
+                    >
+                      <Camera className="w-5 h-5" />
+                      <span className="text-[10px] font-bold">Camera</span>
+                    </button>
+                  </div>
+
+                  <input
+                    ref={quickGalleryRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      addQuickImages(e.target.files);
+                      e.target.value = '';
+                    }}
+                  />
+
+                  <input
+                    ref={quickCameraRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      addQuickImages(e.target.files);
+                      e.target.value = '';
+                    }}
+                  />
+
+                  <p className="text-[10px] text-slate-400 mt-2">
+                    Optional. JPG, PNG or WEBP. Maximum 5 MB per image.
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-100 bg-slate-50/70">
+                <button
+                  type="button"
+                  onClick={closeQuickOrderModal}
+                  disabled={createAdminQuickOrderMut.isPending}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50 transition disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={submitAdminQuickOrder}
+                  disabled={createAdminQuickOrderMut.isPending}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-bold hover:bg-violet-700 transition disabled:opacity-50"
+                >
+                  {createAdminQuickOrderMut.isPending ? (
+                    <>
+                      <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Create Quick Order
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {quickLightbox && createPortal(
         <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center" onClick={() => setQuickLightbox(null)}>
