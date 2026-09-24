@@ -1,10 +1,10 @@
 // @ts-nocheck
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { PrivateImage } from '../../components/common/PrivateImage';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { PrivateImage } from '../../components/common/PrivateImage';
-import { downloadPrivateFile } from '../../utils/fileAccess';
+import { openPrivateFile, downloadPrivateFile } from '../../utils/fileAccess';
 import {
   AlertTriangle,
   ArrowDown,
@@ -45,6 +45,31 @@ const STATUS_OPTIONS = [
   'Cancelled',
 ];
 
+const isPdfAttachment = (attachment: any) =>
+  attachment?.contentType?.toLowerCase() === 'application/pdf' ||
+  attachment?.originalFileName?.toLowerCase().endsWith('.pdf');
+
+const formatAttachmentSize = (bytes: number) => {
+  if (!bytes || bytes < 1024) return bytes ? `${bytes} B` : '';
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const getQuickAttachments = (request: any) => {
+  if (Array.isArray(request?.attachments) && request.attachments.length > 0) {
+    return request.attachments;
+  }
+
+  return (request?.imageUrls || []).map((url: string, index: number) => ({
+    id: `legacy-${request.id}-${index}`,
+    url,
+    originalFileName: `Photo ${index + 1}`,
+    contentType: 'image/*',
+    sizeBytes: 0,
+    uploadedAt: request.createdAt,
+  }));
+};
+
 const selectionKey = (row: any) =>
   `${row._isQuick ? 'quick' : 'order'}:${row.id}`;
 
@@ -83,9 +108,6 @@ export default function RepOrders() {
   const [quickLightbox, setQuickLightbox] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] =
     useState<DeleteConfirmState | null>(null);
-
-  const longPressTimerRef = useRef<number | null>(null);
-  const longPressTriggeredRef = useRef(false);
 
   const { data: customersData = [] } = useQuery({
     queryKey: ['rep-order-customer-names'],
@@ -462,11 +484,7 @@ export default function RepOrders() {
     };
 
     window.addEventListener('keydown', handleEscape);
-
-    return () => {
-      window.removeEventListener('keydown', handleEscape);
-      cancelLongPress();
-    };
+    return () => window.removeEventListener('keydown', handleEscape);
   }, []);
 
   const getCustomerName = (row: any) => {
@@ -491,41 +509,6 @@ export default function RepOrders() {
     });
   };
 
-  const cancelLongPress = () => {
-    if (longPressTimerRef.current !== null) {
-      window.clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  };
-
-  const startLongPress = (row: any) => {
-    cancelLongPress();
-    longPressTriggeredRef.current = false;
-
-    longPressTimerRef.current = window.setTimeout(() => {
-      longPressTriggeredRef.current = true;
-      toggleSelection(row);
-
-      if ('vibrate' in navigator) {
-        navigator.vibrate(25);
-      }
-    }, 500);
-  };
-
-  const handleMobileOrderOpen = (row: any) => {
-    if (longPressTriggeredRef.current) {
-      longPressTriggeredRef.current = false;
-      return;
-    }
-
-    if (selectedKeys.size > 0) {
-      toggleSelection(row);
-      return;
-    }
-
-    setSelectedMobileOrder(row);
-  };
-
   const toggleAllVisible = () => {
     setSelectedKeys((current) => {
       const next = new Set(current);
@@ -542,16 +525,6 @@ export default function RepOrders() {
 
       return next;
     });
-  };
-
-  const selectAllVisible = () => {
-    setSelectedKeys(
-      new Set(
-        visibleRows.map((row: any) =>
-          selectionKey(row),
-        ),
-      ),
-    );
   };
 
   const toggleExpanded = (row: any) => {
@@ -624,36 +597,6 @@ export default function RepOrders() {
       setSortField(field);
       setSortDir('asc');
     }
-  };
-
-  const getMobileDateTime = (value: string | undefined) => {
-    if (!value) {
-      return {
-        date: '—',
-        time: '',
-      };
-    }
-
-    const parsed = new Date(value);
-
-    if (Number.isNaN(parsed.getTime())) {
-      return {
-        date: '—',
-        time: '',
-      };
-    }
-
-    return {
-      date: parsed.toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      }),
-      time: parsed.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-      }),
-    };
   };
 
   const trashRows = useMemo(() => {
@@ -781,11 +724,11 @@ export default function RepOrders() {
                   ? 'bg-emerald-600 text-white'
                   : activeFilterCount > 0
                     ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
-                    : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              <span>Filter</span>
+              <span className="hidden sm:inline">Filter</span>
               {activeFilterCount > 0 && (
                 <span
                   className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold ${
@@ -806,17 +749,18 @@ export default function RepOrders() {
                   type="button"
                   onClick={deleteSelected}
                   disabled={bulkDeleteMut.isPending}
-                  className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  <span>
+                  <span className="hidden lg:inline">
                     Delete ({selectedKeys.size})
                   </span>
+                  <span className="lg:hidden">{selectedKeys.size}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedKeys(new Set())}
-                  className="hidden h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 lg:inline-flex"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                   aria-label="Clear selection"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -1019,142 +963,122 @@ export default function RepOrders() {
             <>
               {/* Mobile and tablet compact order tiles */}
               <div className="lg:hidden">
-                <div className="flex min-h-11 items-center border-b border-slate-100 bg-slate-50/70 px-3 py-2">
-                  {selectedKeys.size > 0 ? (
-                    <div className="flex w-full items-center justify-between gap-3">
-                      <span className="flex-shrink-0 text-[11px] font-bold text-emerald-700">
-                        {selectedKeys.size} selected
-                      </span>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={selectAllVisible}
-                          disabled={allVisibleSelected}
-                          className="inline-flex min-h-8 items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-[11px] font-bold text-emerald-700 transition active:bg-emerald-100 disabled:cursor-default disabled:opacity-45"
-                        >
-                          Select All
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSelectedKeys(new Set())
-                          }
-                          className="inline-flex min-h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-700 transition active:bg-slate-100"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <span className="ml-auto text-[10px] text-slate-400">
-                      Long-press an order to select
-                    </span>
-                  )}
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-3 py-2.5">
+                  <button
+                    type="button"
+                    onClick={toggleAllVisible}
+                    className="inline-flex min-h-9 items-center gap-2 text-xs font-semibold text-slate-600"
+                  >
+                    <SelectionBox checked={allVisibleSelected} />
+                    Select page
+                  </button>
+                  <span className="text-[11px] text-slate-400">
+                    {visibleRows.length} shown
+                  </span>
                 </div>
 
-                <div className="divide-y divide-slate-100 bg-white">
+                <div className="space-y-2.5 bg-slate-50/60 p-2.5 sm:p-3">
                   {visibleRows.map((row: any) => {
                     const key = selectionKey(row);
                     const selected = selectedKeys.has(key);
-                    const mobileDateTime = getMobileDateTime(
-                      row.orderDate || row.createdAt,
-                    );
 
                     return (
                       <article
                         key={key}
-                        role="button"
-                        tabIndex={0}
-                        aria-pressed={selected}
-                        onPointerDown={() => startLongPress(row)}
-                        onPointerUp={cancelLongPress}
-                        onPointerCancel={cancelLongPress}
-                        onPointerLeave={cancelLongPress}
-                        onContextMenu={(event) =>
-                          event.preventDefault()
-                        }
-                        onClick={() => handleMobileOrderOpen(row)}
-                        onKeyDown={(event) => {
-                          if (
-                            event.key !== 'Enter' &&
-                            event.key !== ' '
-                          ) {
-                            return;
-                          }
-
-                          event.preventDefault();
-                          handleMobileOrderOpen(row);
-                        }}
-                        className={`relative cursor-pointer select-none px-3 py-2.5 outline-none transition active:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 sm:px-4 ${
+                        className={`relative overflow-hidden rounded-xl border bg-white shadow-sm transition ${
                           selected
-                            ? 'bg-emerald-50/80'
-                            : 'bg-white'
+                            ? 'border-emerald-400 bg-emerald-50/30'
+                            : 'border-slate-200'
                         }`}
                       >
-                        <div className="flex min-w-0 items-center justify-between gap-3">
-                          <div className="flex min-w-0 items-center gap-1.5">
-                            {selectedKeys.size > 0 && (
-                              <span
-                                className={`inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border ${
-                                  selected
-                                    ? 'border-emerald-600 bg-emerald-600 text-white'
-                                    : 'border-slate-300 bg-white text-transparent'
-                                }`}
-                              >
-                                <Check className="h-3 w-3" />
-                              </span>
-                            )}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => {
+                            if (selectedKeys.size > 0) {
+                              toggleSelection(row);
+                              return;
+                            }
 
-                            <p className="min-w-0 truncate text-[13px] font-black text-slate-900 sm:text-sm">
+                            setSelectedMobileOrder(row);
+                          }}
+                          onKeyDown={(event) => {
+                            if (
+                              event.key !== 'Enter' &&
+                              event.key !== ' '
+                            ) {
+                              return;
+                            }
+
+                            event.preventDefault();
+
+                            if (selectedKeys.size > 0) {
+                              toggleSelection(row);
+                              return;
+                            }
+
+                            setSelectedMobileOrder(row);
+                          }}
+                          className="block min-h-[112px] w-full cursor-pointer px-3 py-3 pr-14 text-left outline-none active:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(event) => {event.stopPropagation();
+                                toggleSelection(row);
+                              }}
+                              className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center"
+                              aria-label={`Select ${row.orderNumber}`}
+                            >
+                              <SelectionBox checked={selected} />
+                            </button>
+
+                            <p className="min-w-0 flex-1 truncate text-sm font-bold text-slate-900">
                               {row.orderNumber}
                             </p>
 
-                            {row._isQuick && (
-                              <span className="flex-shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[8px] font-bold text-violet-700">
-                                Quick
-                              </span>
-                            )}
+                            <StatusBadge
+                              status={row.status}
+                              type="orders"
+                            />
                           </div>
 
-                          <StatusBadge
-                            status={row.status}
-                            type="orders"
-                          />
-                        </div>
+                          {getCustomerName(row) && (
+                            <p className="ml-9 mt-2 truncate text-xs font-medium text-slate-600">
+                              {getCustomerName(row)}
+                            </p>
+                          )}
 
-                        <div className="mt-1.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] text-slate-500 sm:text-[11px]">
-                          <span className="min-w-0 truncate font-semibold text-slate-600">
-                            {getCustomerName(row)}
-                          </span>
-                          <span className="flex-shrink-0 text-slate-300">
-                            |
-                          </span>
-                          <span className="flex-shrink-0">
-                            {mobileDateTime.date}
-                          </span>
-                          {mobileDateTime.time && (
-                            <>
-                              <span className="flex-shrink-0 text-slate-300">
-                                |
-                              </span>
-                              <span className="flex-shrink-0">
-                                {mobileDateTime.time}
-                              </span>
-                            </>
+                          <p className="ml-9 mt-1.5 text-[11px] text-slate-400">
+                            {formatDateTime(
+                              row.orderDate || row.createdAt,
+                            )}
+                          </p>
+
+                          {!row._isQuick && (
+                            <p className="ml-9 mt-2 break-words text-sm font-bold text-slate-900">
+                              {formatCurrency(row.totalAmount || 0)}
+                            </p>
                           )}
                         </div>
 
-                        <p className="mt-1.5 text-sm font-black leading-5 text-emerald-700">
-                          {row._isQuick
-                            ? '—'
-                            : formatCurrency(row.totalAmount || 0)}
-                        </p>
+                        <button
+                          type="button"
+                          onClick={() => deleteSingle(row)}
+                          className="absolute right-2.5 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 shadow-sm transition active:border-red-100 active:bg-red-50 active:text-red-600"
+                          aria-label="Move order to trash"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </article>
                     );
                   })}
                 </div>
+
+                <SelectionHint
+                  count={selectedKeys.size}
+                  onClear={() => setSelectedKeys(new Set())}
+                />
 
                 <Pagination
                   page={page}
@@ -1686,8 +1610,8 @@ function MobileOrderBottomSheet({
                   )}
                 />
                 <CompactMetric
-                  label="Photos"
-                  value={String(row._quick?.imageUrls?.length || 0)}
+                  label="Attachments"
+                  value={String(getQuickAttachments(row._quick).length)}
                 />
               </div>
 
@@ -1961,34 +1885,123 @@ function QuickImages({
   request: any;
   onPreviewImage: (url: string) => void;
 }) {
-  if (!request.imageUrls?.length) return null;
+  const attachments = getQuickAttachments(request);
+  if (!attachments.length) return null;
 
   return (
     <div>
       <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-        Photos ({request.imageUrls.length})
+        Attachments ({attachments.length})
       </p>
+
       <div className="flex flex-wrap gap-2">
-        {request.imageUrls.map((url: string, index: number) => (
+        {attachments.map((attachment: any, index: number) => {
+          const pdf = isPdfAttachment(attachment);
+          const apiPath = attachment.url;
+
+          if (pdf) {
+            return (
+              <div
+                key={`${attachment.id || attachment.originalFileName}-${index}`}
+                className="group relative h-20 w-20 select-none rounded-xl border border-red-100 bg-red-50"
+                title={attachment.originalFileName || 'PDF document'}
+              >
+                <div className="flex h-full w-full flex-col items-center justify-center px-1.5 text-center">
+                  <FileText className="h-6 w-6 text-red-500" />
+                  <span className="mt-1 w-full truncate text-[8px] font-bold text-red-700">
+                    {attachment.originalFileName || 'PDF'}
+                  </span>
+                  <span className="mt-0.5 text-[8px] font-semibold text-red-400">
+                    {formatAttachmentSize(attachment.sizeBytes) || 'PDF'}
+                  </span>
+                </div>
+
+                <div className="absolute inset-x-0 bottom-0 flex translate-y-1 items-center justify-center gap-1 rounded-b-xl bg-black/55 p-1 opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100">
+                  <button
+                    type="button"
+                    onClick={async (event) => {
+                      event.stopPropagation();
+                      try {
+                        await openPrivateFile(apiPath);
+                      } catch {
+                        toast.error('Unable to open PDF');
+                      }
+                    }}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/95 text-red-600 shadow-sm"
+                    title="Open PDF"
+                    aria-label="Open PDF"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async (event) => {
+                      event.stopPropagation();
+                      try {
+                        await downloadPrivateFile(
+                          apiPath,
+                          attachment.originalFileName || 'quick-request.pdf',
+                        );
+                      } catch {
+                        toast.error('Download failed');
+                      }
+                    }}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/95 text-slate-700 shadow-sm"
+                    title="Download PDF"
+                    aria-label="Download PDF"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          return (
             <div
-              key={`${url}-${index}`}
-              className="group relative h-20 w-20"
+              key={`${attachment.id || attachment.url}-${index}`}
+              className="group relative h-20 w-20 select-none"
+              onClick={(event) => event.stopPropagation()}
             >
-              <PrivateImage
-                apiPath={url}
-                alt={`Quick order attachment ${index + 1}`}
-                onClick={() => onPreviewImage(url)}
-                className="h-20 w-20 cursor-pointer rounded-xl border border-slate-200 object-cover"
-              />
               <button
                 type="button"
-                onClick={(event) => { event.stopPropagation(); void downloadPrivateFile(url, `photo-${index + 1}`); }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onPreviewImage(apiPath);
+                }}
+                className="block h-20 w-20 overflow-hidden rounded-xl"
+                aria-label={`Preview attachment ${index + 1}`}
+              >
+                <PrivateImage
+                  apiPath={apiPath}
+                  alt={attachment.originalFileName || `Attachment ${index + 1}`}
+                  className="h-20 w-20 rounded-xl border border-slate-200 object-cover transition group-hover:opacity-90"
+                />
+              </button>
+
+              <button
+                type="button"
+                onClick={async (event) => {
+                  event.stopPropagation();
+                  try {
+                    await downloadPrivateFile(
+                      apiPath,
+                      attachment.originalFileName || `photo-${index + 1}.jpg`,
+                    );
+                  } catch {
+                    toast.error('Download failed');
+                  }
+                }}
                 className="absolute bottom-1 right-1 inline-flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100"
+                title="Download image"
+                aria-label="Download image"
               >
                 <Download className="h-3 w-3" />
               </button>
             </div>
-          ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -2090,8 +2103,7 @@ function SelectionBox({
   checked: boolean;
   dark?: boolean;
 }) {
-  return (
-    <span
+  return (<span
       className={`inline-flex h-5 w-5 items-center justify-center rounded border-2 transition ${
         checked
           ? 'border-emerald-600 bg-emerald-600'
