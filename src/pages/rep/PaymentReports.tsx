@@ -680,17 +680,7 @@ export default function RepPaymentReports() {
               Select this page
             </label>
 
-            <button
-              type="button"
-              onClick={exportPdf}
-              disabled={exportingPdf}
-              className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 disabled:opacity-50"
-            >
-              {exportingPdf
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <FileText className="h-4 w-4 text-rose-500" />}
-              {selectedIds.size > 0 ? `PDF (${selectedIds.size})` : 'PDF'}
-            </button>
+
           </div>
 
           {selectedIds.size > 0 && (
@@ -773,17 +763,7 @@ export default function RepPaymentReports() {
             ))}
           </select>
 
-          <button
-            type="button"
-            onClick={exportPdf}
-            disabled={exportingPdf}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-600 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
-          >
-            {exportingPdf
-              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              : <FileText className="h-3.5 w-3.5" />}
-            PDF
-          </button>
+
 
           {activeTab === 'active' && selectedIds.size > 0 && (
             <button

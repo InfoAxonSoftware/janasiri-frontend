@@ -31,10 +31,7 @@ import { formatCurrency, formatDateTime } from '../../utils/formatters';
 import StatusBadge from '../../components/common/StatusBadge';
 import RoleOrderTrash from '../../components/orders/RoleOrderTrash';
 import type { OrderStatus } from '../../types/order.types';
-import {
-  downloadQuickRequestExcel,
-  downloadQuickRequestPdf,
-} from '../../utils/quickRequestPdf';
+
 
 const BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || '';
 const STATUS_OPTIONS = [
@@ -1635,25 +1632,7 @@ function MobileOrderBottomSheet({
                 onPreviewImage={onPreviewImage}
               />
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => downloadQuickRequestPdf(row._quick)}
-                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-red-100 text-sm font-semibold text-red-600"
-                >
-                  <FileText className="h-4 w-4" />
-                  PDF
-                </button>
 
-                <button
-                  type="button"
-                  onClick={() => downloadQuickRequestExcel(row._quick)}
-                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-emerald-100 text-sm font-semibold text-emerald-700"
-                >
-                  <FileSpreadsheet className="h-4 w-4" />
-                  Excel
-                </button>
-              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -1746,24 +1725,7 @@ function DesktopExpandedOrder({
             />
           </div>
 
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => downloadQuickRequestPdf(request)}
-              className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-red-100 text-xs font-semibold text-red-600 transition hover:bg-red-50"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              Export PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => downloadQuickRequestExcel(request)}
-              className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-emerald-100 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50"
-            >
-              <FileSpreadsheet className="h-3.5 w-3.5" />
-              Export Excel
-            </button>
-          </div>
+
         </div>
       </div>
     );

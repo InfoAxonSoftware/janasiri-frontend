@@ -95,10 +95,7 @@ export default function RepSalesSummary() {
             <p className="text-xs font-bold text-slate-800">{report.regionName} — Sales Summary</p>
             {report.originalFileName && <p className="text-[10px] text-slate-500 mt-0.5">Source: {report.originalFileName}</p>}
           </div>
-          <button onClick={() => handleExportPdf(report)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-600 text-white rounded-lg text-xs font-semibold hover:bg-slate-700 transition">
-            <FileDown className="w-3.5 h-3.5" /> Export PDF
-          </button>
+
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">

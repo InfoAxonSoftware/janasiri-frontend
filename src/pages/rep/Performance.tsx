@@ -642,16 +642,7 @@ function CurrentReportDetail({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() =>
-              exportTargetReportPdf(report)
-            }
-            className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-700 px-4 text-xs font-bold text-white transition hover:bg-slate-800 sm:w-auto"
-          >
-            <FileDown className="h-4 w-4" />
-            Export PDF
-          </button>
+
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">

@@ -9,7 +9,7 @@ import { customersApi } from '../../services/api/customersApi';
 import { quickRequestApi } from '../../services/api/quickRequestApi';
 import { formatCurrency, formatRelative, formatDate, formatDateTime } from '../../utils/formatters';
 import { taxCodeToRate } from '../../utils/calculations';
-import { downloadQuotationPdf } from '../../utils/quotationPdf';
+
 import { useNavigate } from 'react-router-dom';
 import { FileText, Plus, Download, X, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown, Trash2, RotateCcw } from 'lucide-react';
 import { useIsDesktop } from '../../hooks/useMediaQuery';
@@ -19,7 +19,7 @@ import BottomSheet from '../../components/common/BottomSheet';
 import StatusBadge from '../../components/common/StatusBadge';
 import EmptyState from '../../components/common/EmptyState';
 import type { Quotation } from '../../types/quotation.types';
-import { downloadQuickRequestPdf, downloadQuickRequestExcel, downloadImage } from '../../utils/quickRequestPdf';
+
 
 const BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || '';
 
@@ -414,14 +414,7 @@ export default function RepQuotations() {
                                 </div>
                               )}
 
-                              <div className="flex justify-end mt-4">
-                                <button
-                                  onClick={() => downloadQuotationPdf(q, getIsTax(q))}
-                                  className="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition flex items-center gap-2"
-                                >
-                                  <Download className="w-4 h-4" /> Download PDF
-                                </button>
-                              </div>
+
                             </div>
                           </td>
                         </tr>
@@ -690,14 +683,7 @@ export default function RepQuotations() {
                 </div>
               )}
             </div>
-            <div className="px-5 py-3 border-t border-slate-100 flex gap-2">
-              <button onClick={() => downloadQuickRequestPdf(selectedQuick)} className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 text-sm font-semibold rounded-xl text-red-600 hover:bg-red-50 border border-red-100 transition">
-                <Download className="w-4 h-4" /> PDF
-              </button>
-              <button onClick={() => downloadQuickRequestExcel(selectedQuick)} className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 text-sm font-semibold rounded-xl text-emerald-600 hover:bg-emerald-50 border border-emerald-100 transition">
-                <FileSpreadsheet className="w-4 h-4" /> Excel
-              </button>
-            </div>
+
           </div>
         </div>,
         document.body
@@ -789,12 +775,7 @@ export default function RepQuotations() {
               </div>
             )}
 
-            <button
-              onClick={() => downloadQuotationPdf(selected, getIsTax(selected))}
-              className="w-full px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition flex items-center justify-center gap-2"
-            >
-              <Download className="w-4 h-4" /> Download PDF
-            </button>
+
           </div>
         )}
       </BottomSheet>

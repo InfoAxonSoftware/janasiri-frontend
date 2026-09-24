@@ -252,16 +252,8 @@ function RegionReportPanel({ report, isInline = false }: { report: OutstandingRe
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search customer / ref…"
                 className="pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm w-52 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 outline-none" />
             </div>
-            {selectedCustomers.size > 0 && (
-              <button onClick={exportSelectedPdf}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-xl text-sm font-semibold hover:bg-violet-700 transition">
-                <FileDown className="w-4 h-4" /> Export Selected ({selectedCustomers.size})
-              </button>
-            )}
-            <button onClick={handleExportPdf} disabled={exporting}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 disabled:opacity-50 transition">
-              <FileDown className="w-4 h-4" /> {exporting ? 'Exporting…' : 'Export All'}
-          </button>
+
+
         </div>
       </div>
 
