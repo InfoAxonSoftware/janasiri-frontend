@@ -2,11 +2,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { quickRequestApi } from '../../services/api/quickRequestApi';
-import type { QuickRequestDto } from '../../services/api/quickRequestApi';
+import type { QuickRequestDto, QuickRequestAttachmentDto } from '../../services/api/quickRequestApi';
+import { openPrivateFile, downloadPrivateFile } from '../../utils/fileAccess';
 import toast from 'react-hot-toast';
 import {
   ShoppingCart, FileText, ChevronDown, ChevronRight, Clock,
-  CheckCircle, XCircle, Package, Sparkles, Eye, X,
+  CheckCircle, XCircle, Package, Sparkles, Eye, X, Download,
 } from 'lucide-react';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import { PrivateImage } from '../../components/common/PrivateImage';
@@ -30,6 +31,31 @@ const STATUS_ICONS: Record<string, JSX.Element> = {
 
 const fmtDate = (d: string) =>
   new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+const isPdfAttachment = (attachment: QuickRequestAttachmentDto) =>
+  attachment.contentType?.toLowerCase() === 'application/pdf' ||
+  attachment.originalFileName?.toLowerCase().endsWith('.pdf');
+
+const formatFileSize = (bytes: number) => {
+  if (!bytes || bytes < 1024) return bytes ? `${bytes} B` : '';
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const getAttachments = (request: QuickRequestDto): QuickRequestAttachmentDto[] => {
+  if (Array.isArray(request.attachments) && request.attachments.length > 0) {
+    return request.attachments;
+  }
+
+  return (request.imageUrls || []).map((url, index) => ({
+    id: `legacy-${request.id}-${index}`,
+    url,
+    originalFileName: `Photo ${index + 1}`,
+    contentType: 'image/*',
+    sizeBytes: 0,
+    uploadedAt: request.createdAt,
+  }));
+};
 
 // ── Image full-screen modal ───────────────────────────────────────────────────
 
@@ -177,7 +203,7 @@ export default function AdminQuickRequests() {
                   <th className="text-left px-4 py-3 font-semibold">Customer</th>
                   <th className="text-left px-4 py-3 font-semibold">Rep</th>
                   <th className="text-center px-3 py-3 font-semibold">Status</th>
-                  <th className="text-center px-3 py-3 font-semibold">Photos</th>
+                  <th className="text-center px-3 py-3 font-semibold">Files</th>
                   <th className="text-left px-3 py-3 font-semibold">Date</th>
                   <th className="w-28 px-3 py-3" />
                 </tr>
@@ -200,8 +226,8 @@ export default function AdminQuickRequests() {
                         </span>
                       </td>
                       <td className="px-3 py-3 text-center text-slate-500 text-xs">
-                        {r.imageUrls.length > 0
-                          ? <span className="flex items-center justify-center gap-1"><Eye className="w-3 h-3" />{r.imageUrls.length}</span>
+                        {getAttachments(r).length > 0
+                          ? <span className="flex items-center justify-center gap-1"><Eye className="w-3 h-3" />{getAttachments(r).length}</span>
                           : '—'}
                       </td>
                       <td className="px-3 py-3 text-slate-500 text-xs whitespace-nowrap">{fmtDate(r.createdAt)}</td>
@@ -247,16 +273,93 @@ export default function AdminQuickRequests() {
                               </div>
                             )}
 
-                            {/* Images */}
-                            {r.imageUrls.length > 0 && (
+                            {/* Attachments */}
+                            {getAttachments(r).length > 0 && (
                               <div>
-                                <p className="text-xs font-semibold text-slate-500 mb-2">Attached Photos ({r.imageUrls.length})</p>
+                                <p className="text-xs font-semibold text-slate-500 mb-2">
+                                  Attachments ({getAttachments(r).length})
+                                </p>
+
                                 <div className="flex flex-wrap gap-3">
-                                  {r.imageUrls.map((url, i) => (
-                                    <PrivateImage key={i} apiPath={url} alt=""
-                                      className="w-24 h-24 rounded-xl object-cover border border-slate-200 cursor-pointer hover:opacity-80 transition"
-                                      onClick={() => setFullPreview(url)} />
-                                  ))}
+                                  {getAttachments(r).map((attachment) => {
+                                    const pdf = isPdfAttachment(attachment);
+
+                                    if (pdf) {
+                                      return (
+                                        <div
+                                          key={attachment.id}
+                                          className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                                        >
+                                          <div className="flex items-start gap-3">
+                                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
+                                              <FileText className="h-5 w-5" />
+                                            </div>
+
+                                            <div className="min-w-0 flex-1">
+                                              <p className="truncate text-sm font-semibold text-slate-800" title={attachment.originalFileName}>
+                                                {attachment.originalFileName || 'PDF document'}
+                                              </p>
+                                              {formatFileSize(attachment.sizeBytes) && (
+                                                <p className="mt-0.5 text-[11px] text-slate-400">
+                                                  {formatFileSize(attachment.sizeBytes)}
+                                                </p>
+                                              )}
+
+                                              <div className="mt-2 flex flex-wrap gap-2">
+                                                <button
+                                                  type="button"
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    try {
+                                                      await openPrivateFile(attachment.url);
+                                                    } catch {
+                                                      toast.error('Unable to open PDF');
+                                                    }
+                                                  }}
+                                                  className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-100"
+                                                >
+                                                  <Eye className="h-3.5 w-3.5" />
+                                                  Open PDF
+                                                </button>
+
+                                                <button
+                                                  type="button"
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    try {
+                                                      await downloadPrivateFile(
+                                                        attachment.url,
+                                                        attachment.originalFileName || 'quick-request.pdf',
+                                                      );
+                                                    } catch {
+                                                      toast.error('Download failed');
+                                                    }
+                                                  }}
+                                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                                                >
+                                                  <Download className="h-3.5 w-3.5" />
+                                                  Download
+                                                </button>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+
+                                    return (
+                                      <PrivateImage
+                                        key={attachment.id}
+                                        apiPath={attachment.url}
+                                        alt={attachment.originalFileName || 'Attachment'}
+                                        className="w-24 h-24 rounded-xl object-cover border border-slate-200 cursor-pointer hover:opacity-80 transition"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setFullPreview(attachment.url);
+                                        }}
+                                      />
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}

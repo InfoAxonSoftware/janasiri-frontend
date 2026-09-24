@@ -23,16 +23,99 @@ import StatusBadge from '../../components/common/StatusBadge';
 import { quickRequestApi } from '../../services/api/quickRequestApi';
 import { downloadQuickRequestPdf, downloadQuickRequestExcel, downloadImage } from '../../utils/quickRequestPdf';
 import RoleOrderTrash from '../../components/orders/RoleOrderTrash';
+import { openPrivateFile, downloadPrivateFile } from '../../utils/fileAccess';
 
 // Strip LKR prefix for display
 const fmtAmt = (n: number) => formatCurrency(n).replace(/^LKR[\s\u00A0]*/i, '');
 const BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || '';
 const QUICK_STATUSES = ['Pending', 'Approved', 'Rejected', 'Completed'];
 
+const isPdfQuickAttachment = (attachment: any) =>
+  attachment?.contentType?.toLowerCase() === 'application/pdf' ||
+  attachment?.originalFileName?.toLowerCase().endsWith('.pdf');
+
+const getQuickAttachments = (request: any): any[] => {
+  if (Array.isArray(request?.attachments) && request.attachments.length > 0) {
+    return request.attachments;
+  }
+
+  return (request?.imageUrls || []).map((url: string, index: number) => ({
+    id: `legacy-${request.id}-${index}`,
+    url,
+    originalFileName: `Photo ${index + 1}`,
+    contentType: 'image/*',
+    sizeBytes: 0,
+    uploadedAt: request.createdAt,
+  }));
+};
+
+const formatQuickAttachmentSize = (bytes: number) => {
+  if (!bytes || bytes < 1024) return bytes ? `${bytes} B` : '';
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 // Sort icon helper
 function SortIcon({ field, sortField, sortDir }: { field: string; sortField: string; sortDir: 'asc' | 'desc' }) {
   if (sortField !== field) return <ArrowUpDown className="w-3 h-3 opacity-30" />;
   return sortDir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />;
+}
+
+
+function QuickPdfAttachmentCard({ attachment }: { attachment: any }) {
+  return (
+    <div
+      className="group relative h-20 w-20 shrink-0 select-none cursor-default overflow-hidden rounded-xl border border-red-200 bg-red-50"
+      title={attachment.originalFileName || 'PDF document'}
+    >
+      <div className="flex h-full w-full flex-col items-center justify-center px-1.5 pb-1">
+        <FileText className="h-6 w-6 text-red-600" />
+        <span className="mt-1 w-full truncate text-center text-[8px] font-bold leading-tight text-slate-700">
+          {attachment.originalFileName || 'PDF document'}
+        </span>
+        <span className="mt-0.5 text-[8px] font-semibold text-red-500">PDF</span>
+      </div>
+
+      <div className="absolute inset-x-1 bottom-1 flex justify-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <button
+          type="button"
+          onClick={async (e) => {
+            e.stopPropagation();
+            try {
+              await openPrivateFile(attachment.url);
+            } catch {
+              toast.error('Unable to open PDF');
+            }
+          }}
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/95 text-violet-700 shadow-sm hover:bg-white transition"
+          title="Open PDF"
+          aria-label="Open PDF"
+        >
+          <FileText className="h-3.5 w-3.5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={async (e) => {
+            e.stopPropagation();
+            try {
+              await downloadPrivateFile(
+                attachment.url,
+                attachment.originalFileName || 'quick-request.pdf',
+              );
+            } catch {
+              toast.error('Download failed');
+            }
+          }}
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/95 text-slate-600 shadow-sm hover:bg-white transition"
+          title="Download PDF"
+          aria-label="Download PDF"
+        >
+          <Download className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function AdminOrders() {
@@ -72,8 +155,12 @@ export default function AdminOrders() {
   const [showQuickOrderModal, setShowQuickOrderModal] = useState(false);
   const [quickCustomerName, setQuickCustomerName] = useState('');
   const [quickDetails, setQuickDetails] = useState('');
-  const [quickImages, setQuickImages] = useState<File[]>([]);
-  const [quickPreviewUrls, setQuickPreviewUrls] = useState<string[]>([]);
+  type QuickAttachment = {
+    file: File;
+    previewUrl: string | null;
+  };
+
+  const [quickAttachments, setQuickAttachments] = useState<QuickAttachment[]>([]);
 
   const quickGalleryRef = useRef<HTMLInputElement>(null);
   const quickCameraRef = useRef<HTMLInputElement>(null);
@@ -229,20 +316,23 @@ export default function AdminOrders() {
         throw new Error('Customer name is required');
       }
 
-      if (!details && quickImages.length === 0) {
-        throw new Error('Enter request details or attach an image');
+      if (!details && quickAttachments.length === 0) {
+        throw new Error('Enter request details or attach a file');
       }
 
       const response = await quickRequestApi.adminCreate({
         type: 'Order',
         customerName,
-        details: details || 'Image attachment only',
+        details: details || 'Attachment only',
       });
 
       const created = response.data.data;
 
-      if (quickImages.length > 0) {
-        await quickRequestApi.adminUploadImages(created.id, quickImages);
+      if (quickAttachments.length > 0) {
+        await quickRequestApi.adminUploadImages(
+          created.id,
+          quickAttachments.map((attachment) => attachment.file),
+        );
       }
 
       return created;
@@ -256,8 +346,7 @@ export default function AdminOrders() {
       setShowQuickOrderModal(false);
       setQuickCustomerName('');
       setQuickDetails('');
-      setQuickImages([]);
-      setQuickPreviewUrls([]);
+      setQuickAttachments([]);
 
       toast.success('Quick order created');
     },
@@ -271,42 +360,59 @@ export default function AdminOrders() {
     },
   });
 
-  const addQuickImages = (files: FileList | null) => {
+  const addQuickAttachments = (files: FileList | null) => {
     if (!files) return;
 
     const selected = Array.from(files);
 
-    // Keep this aligned with the backend validation.
-    const allowedTypes = [
+    const validTypes = [
       'image/jpeg',
       'image/png',
       'image/webp',
+      'application/pdf',
     ];
 
-    const valid = selected.filter(
-      (file) =>
-        allowedTypes.includes(file.type) &&
-        file.size <= 5 * 1024 * 1024,
-    );
+    const valid = selected.filter((file) => {
+      const isPdf = file.type === 'application/pdf';
+      const maxSize = isPdf
+        ? 10 * 1024 * 1024
+        : 5 * 1024 * 1024;
+
+      return validTypes.includes(file.type) && file.size <= maxSize;
+    });
 
     if (valid.length < selected.length) {
       toast.error(
-        'Only JPG, PNG or WEBP images under 5 MB are allowed.',
+        'Only JPG, PNG, WEBP (max 5 MB) or PDF (max 10 MB) files are allowed.',
       );
     }
 
-    setQuickImages((current) => [...current, ...valid]);
-
     valid.forEach((file) => {
+      const isPdf = file.type === 'application/pdf';
+
+      if (isPdf) {
+        setQuickAttachments((current) => [
+          ...current,
+          {
+            file,
+            previewUrl: null,
+          },
+        ]);
+        return;
+      }
+
       const reader = new FileReader();
 
       reader.onload = (event) => {
         const result = event.target?.result as string;
         if (!result) return;
 
-        setQuickPreviewUrls((current) => [
+        setQuickAttachments((current) => [
           ...current,
-          result,
+          {
+            file,
+            previewUrl: result,
+          },
         ]);
       };
 
@@ -314,12 +420,8 @@ export default function AdminOrders() {
     });
   };
 
-  const removeQuickImage = (index: number) => {
-    setQuickImages((current) =>
-      current.filter((_, i) => i !== index),
-    );
-
-    setQuickPreviewUrls((current) =>
+  const removeQuickAttachment = (index: number) => {
+    setQuickAttachments((current) =>
       current.filter((_, i) => i !== index),
     );
   };
@@ -330,8 +432,7 @@ export default function AdminOrders() {
     setShowQuickOrderModal(false);
     setQuickCustomerName('');
     setQuickDetails('');
-    setQuickImages([]);
-    setQuickPreviewUrls([]);
+    setQuickAttachments([]);
   };
 
   const submitAdminQuickOrder = () => {
@@ -340,8 +441,8 @@ export default function AdminOrders() {
       return;
     }
 
-    if (!quickDetails.trim() && quickImages.length === 0) {
-      toast.error('Enter request details or attach an image');
+    if (!quickDetails.trim() && quickAttachments.length === 0) {
+      toast.error('Enter request details or attach a file');
       return;
     }
 
@@ -1168,26 +1269,56 @@ export default function AdminOrders() {
                             <p className="text-sm text-slate-700 bg-amber-50 border border-amber-100 rounded-xl p-3">{qr.adminNotes}</p>
                           </div>
                         )}
-                        {qr.imageUrls?.length > 0 && (
+                        {getQuickAttachments(qr).length > 0 && (
                           <div>
-                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">Photos ({qr.imageUrls.length})</p>
+                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">
+                              Attachments ({getQuickAttachments(qr).length})
+                            </p>
+
                             <div className="flex flex-wrap gap-2">
-                              {qr.imageUrls.map((url: string, i: number) => (
-                                <div key={i} className="relative group w-20 h-20">
-                                  <PrivateImage apiPath={url} alt={`Photo ${i+1}`}
-                                    onClick={() => setQuickLightbox(url)}
-                                    className="w-20 h-20 rounded-xl object-cover border border-slate-200 cursor-pointer hover:opacity-90 transition"
-                                    onError={e => { (e.target as any).style.display = 'none'; }}
-                                  />
-                                  <button
-                                    onClick={async e => { e.stopPropagation(); await downloadImage(`${BASE}${url}`, `photo-${i+1}`); }}
-                                    className="absolute bottom-1 right-1 w-6 h-6 rounded-lg bg-black/60 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
-                                    title="Download photo"
-                                  >
-                                    <Download className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              ))}
+                              {getQuickAttachments(qr).map((attachment: any) => {
+                                const pdf = isPdfQuickAttachment(attachment);
+
+                                if (pdf) {
+                                  return <QuickPdfAttachmentCard key={attachment.id} attachment={attachment} />;
+                                }
+
+                                return (
+                                  <div key={attachment.id} className="relative group w-20 h-20">
+                                    <PrivateImage
+                                      apiPath={attachment.url}
+                                      alt={attachment.originalFileName || 'Attachment'}
+                                      onClick={() => setQuickLightbox(attachment.url)}
+                                      className="w-20 h-20 rounded-xl object-cover border border-slate-200 cursor-pointer hover:opacity-90 transition"
+                                      onError={e => { (e.target as any).style.display = 'none'; }}
+                                    />
+                                    <button
+                                      onClick={async e => {
+                                        e.stopPropagation();
+                                        try {
+                                          await downloadPrivateFile(
+                                            attachment.url,
+                                            attachment.originalFileName || 'photo.jpg',
+                                          );
+                                        } catch {
+                                          try {
+                                            await downloadImage(
+                                              `${BASE}${attachment.url}`,
+                                              attachment.originalFileName || 'photo.jpg',
+                                            );
+                                          } catch {
+                                            toast.error('Download failed');
+                                          }
+                                        }
+                                      }}
+                                      className="absolute bottom-1 right-1 w-6 h-6 rounded-lg bg-black/60 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                                      title="Download attachment"
+                                    >
+                                      <Download className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -1467,26 +1598,63 @@ export default function AdminOrders() {
                                       <p className="text-sm text-slate-700 bg-amber-50 border border-amber-100 rounded-xl p-3">{qr.adminNotes}</p>
                                     </div>
                                   )}
-                                  {qr.imageUrls?.length > 0 && (
+                                  {getQuickAttachments(qr).length > 0 && (
                                     <div>
-                                      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">Photos ({qr.imageUrls.length})</p>
-                                      <div className="flex flex-wrap gap-2">
-                                        {qr.imageUrls.map((url: string, i: number) => (
-                                          <div key={i} className="relative group w-20 h-20">
-                                            <PrivateImage apiPath={url} alt={`Photo ${i+1}`}
-                                              onClick={e => { e.stopPropagation(); setQuickLightbox(url); }}
-                                              className="w-20 h-20 rounded-xl object-cover border border-slate-200 cursor-pointer hover:opacity-90 transition"
-                                              onError={e => { (e.target as any).style.display = 'none'; }}
-                                            />
-                                            <button
-                                              onClick={async e => { e.stopPropagation(); await downloadImage(`${BASE}${url}`, `photo-${i+1}`); }}
-                                              className="absolute bottom-1 right-1 w-6 h-6 rounded-lg bg-black/60 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
-                                              title="Download photo"
+                                      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">
+                                        Attachments ({getQuickAttachments(qr).length})
+                                      </p>
+
+                                      <div className="flex flex-wrap gap-2.5">
+                                        {getQuickAttachments(qr).map((attachment: any) => {
+                                          const pdf = isPdfQuickAttachment(attachment);
+
+                                          if (pdf) {
+                                            return <QuickPdfAttachmentCard key={attachment.id} attachment={attachment} />;
+                                          }
+
+                                          return (
+                                            <div
+                                              key={attachment.id}
+                                              className="relative group w-20 h-20"
                                             >
-                                              <Download className="w-3 h-3" />
-                                            </button>
-                                          </div>
-                                        ))}
+                                              <PrivateImage
+                                                apiPath={attachment.url}
+                                                alt={attachment.originalFileName || 'Attachment'}
+                                                onClick={e => {
+                                                  e.stopPropagation();
+                                                  setQuickLightbox(attachment.url);
+                                                }}
+                                                className="w-20 h-20 rounded-xl object-cover border border-slate-200 cursor-pointer hover:opacity-90 transition"
+                                                onError={e => { (e.target as any).style.display = 'none'; }}
+                                              />
+
+                                              <button
+                                                onClick={async e => {
+                                                  e.stopPropagation();
+                                                  try {
+                                                    await downloadPrivateFile(
+                                                      attachment.url,
+                                                      attachment.originalFileName || 'photo.jpg',
+                                                    );
+                                                  } catch {
+                                                    try {
+                                                      await downloadImage(
+                                                        `${BASE}${attachment.url}`,
+                                                        attachment.originalFileName || 'photo.jpg',
+                                                      );
+                                                    } catch {
+                                                      toast.error('Download failed');
+                                                    }
+                                                  }
+                                                }}
+                                                className="absolute bottom-1 right-1 w-6 h-6 rounded-lg bg-black/60 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                                                title="Download attachment"
+                                              >
+                                                <Download className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          );
+                                        })}
                                       </div>
                                     </div>
                                   )}
@@ -1960,36 +2128,53 @@ export default function AdminOrders() {
                       Attachments
                     </label>
 
-                    {quickImages.length > 0 && (
+                    {quickAttachments.length > 0 && (
                       <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-violet-100 text-violet-700">
-                        {quickImages.length} photo{quickImages.length !== 1 ? 's' : ''}
+                        {quickAttachments.length} file{quickAttachments.length !== 1 ? 's' : ''}
                       </span>
                     )}
                   </div>
 
                   <div className="flex flex-wrap gap-2.5">
-                    {quickPreviewUrls.map((url, index) => (
-                      <div
-                        key={`${url}-${index}`}
-                        className="relative w-24 h-24 rounded-xl"
-                      >
-                        <img
-                          src={url}
-                          alt={`Attachment ${index + 1}`}
-                          className="w-24 h-24 rounded-xl object-cover border border-slate-200"
-                        />
+                    {quickAttachments.map((attachment, index) => {
+                      const isPdf =
+                        attachment.file.type === 'application/pdf';
 
-                        <button
-                          type="button"
-                          onClick={() => removeQuickImage(index)}
-                          disabled={createAdminQuickOrderMut.isPending}
-                          className="absolute -right-2 -top-2 w-7 h-7 rounded-full bg-white border border-slate-200 text-red-500 shadow-md flex items-center justify-center hover:bg-red-50 disabled:opacity-40"
-                          aria-label={`Remove attachment ${index + 1}`}
+                      return (
+                        <div
+                          key={`${attachment.file.name}-${attachment.file.lastModified}-${index}`}
+                          className="relative w-24 h-24 rounded-xl"
                         >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                          {isPdf ? (
+                            <div className="w-24 h-24 rounded-xl border border-violet-200 bg-violet-50 flex flex-col items-center justify-center px-2 text-center">
+                              <FileText className="w-7 h-7 text-violet-600 mb-1" />
+                              <span className="w-full text-[9px] font-bold text-violet-800 truncate">
+                                {attachment.file.name}
+                              </span>
+                              <span className="text-[8px] text-violet-500 mt-0.5">
+                                PDF
+                              </span>
+                            </div>
+                          ) : (
+                            <img
+                              src={attachment.previewUrl || ''}
+                              alt={`Attachment ${index + 1}`}
+                              className="w-24 h-24 rounded-xl object-cover border border-slate-200"
+                            />
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => removeQuickAttachment(index)}
+                            disabled={createAdminQuickOrderMut.isPending}
+                            className="absolute -right-2 -top-2 w-7 h-7 rounded-full bg-white border border-slate-200 text-red-500 shadow-md flex items-center justify-center hover:bg-red-50 disabled:opacity-40"
+                            aria-label={`Remove attachment ${index + 1}`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
 
                     <button
                       type="button"
@@ -1997,8 +2182,8 @@ export default function AdminOrders() {
                       disabled={createAdminQuickOrderMut.isPending}
                       className="w-24 h-24 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-violet-50 hover:border-violet-400 text-slate-500 hover:text-violet-600 flex flex-col items-center justify-center gap-1 transition disabled:opacity-40"
                     >
-                      <ImagePlus className="w-5 h-5" />
-                      <span className="text-[10px] font-bold">Gallery</span>
+                      <FileText className="w-5 h-5" />
+                      <span className="text-[10px] font-bold">Files</span>
                     </button>
 
                     <button
@@ -2015,11 +2200,11 @@ export default function AdminOrders() {
                   <input
                     ref={quickGalleryRef}
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
                     multiple
                     className="hidden"
                     onChange={(e) => {
-                      addQuickImages(e.target.files);
+                      addQuickAttachments(e.target.files);
                       e.target.value = '';
                     }}
                   />
@@ -2031,13 +2216,13 @@ export default function AdminOrders() {
                     capture="environment"
                     className="hidden"
                     onChange={(e) => {
-                      addQuickImages(e.target.files);
+                      addQuickAttachments(e.target.files);
                       e.target.value = '';
                     }}
                   />
 
                   <p className="text-[10px] text-slate-400 mt-2">
-                    Optional. JPG, PNG or WEBP. Maximum 5 MB per image.
+                    Optional. JPG, PNG or WEBP up to 5 MB each, or PDF up to 10 MB each.
                   </p>
                 </div>
               </div>

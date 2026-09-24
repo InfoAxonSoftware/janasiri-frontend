@@ -53,22 +53,24 @@ export default function RepQuickRequest() {
   const queryClient = useQueryClient();
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+  const attachmentRef = useRef<HTMLInputElement>(null);
 
   const [type, setType] = useState<RequestType>('Order');
   const [customerName, setCustomerName] = useState('');
   const [details, setDetails] = useState('');
-  const [pendingImages, setPendingImages] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<
+    Array<{ id: string; file: File; previewUrl: string | null }>
+  >([]);
   const [fullPreview, setFullPreview] = useState<string | null>(null);
 
   const submitMutation = useMutation({
     mutationFn: async () => {
       /*
-       * The existing backend creates the Quick Request first and uploads images
-       * afterwards. It currently expects a non-empty details value, so an
-       * image-only request uses a small neutral description internally.
+       * The backend creates the Quick Request first and uploads attachments
+       * afterwards. It expects non-empty details, so attachment-only requests
+       * use a neutral description internally.
        */
-      const requestDetails = details.trim() || 'Image attachment only';
+      const requestDetails = details.trim() || 'Attachment only';
 
       const response = await quickRequestApi.create({
         type,
@@ -78,8 +80,11 @@ export default function RepQuickRequest() {
 
       const created = response.data.data;
 
-      if (pendingImages.length > 0) {
-        await quickRequestApi.uploadImages(created.id, pendingImages);
+      if (pendingAttachments.length > 0) {
+        await quickRequestApi.uploadImages(
+          created.id,
+          pendingAttachments.map((attachment) => attachment.file),
+        );
       }
 
       return created;
@@ -90,8 +95,7 @@ export default function RepQuickRequest() {
 
       setCustomerName('');
       setDetails('');
-      setPendingImages([]);
-      setPreviewUrls([]);
+      setPendingAttachments([]);
       setFullPreview(null);
 
       queryClient.invalidateQueries({
@@ -109,63 +113,76 @@ export default function RepQuickRequest() {
       ),
   });
 
-  const addImages = (files: FileList | null) => {
+  const addAttachments = (files: FileList | null) => {
     if (!files) return;
 
     const selectedFiles = Array.from(files);
-    const validTypes = [
-      'image/jpeg',
-      'image/png',
-      'image/webp',
-      'image/gif',
-    ];
+
+    const isAllowedImage = (file: File) =>
+      [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+      ].includes(file.type) && file.size <= 5 * 1024 * 1024;
+
+    const isAllowedPdf =
+      (file: File) =>
+        file.type === 'application/pdf' &&
+        file.size <= 10 * 1024 * 1024;
 
     const validFiles = selectedFiles.filter(
-      (file) =>
-        validTypes.includes(file.type) &&
-        file.size <= 10 * 1024 * 1024,
+      (file) => isAllowedImage(file) || isAllowedPdf(file),
     );
 
     if (validFiles.length < selectedFiles.length) {
       toast.error(
-        'Some files were skipped. Use supported images under 10 MB.',
+        'Some files were skipped. Images must be JPG, PNG or WEBP under 5 MB. PDFs must be under 10 MB.',
       );
     }
 
-    setPendingImages((current) => [
+    const newAttachments = validFiles.map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      previewUrl: null as string | null,
+    }));
+
+    setPendingAttachments((current) => [
       ...current,
-      ...validFiles,
+      ...newAttachments,
     ]);
 
-    validFiles.forEach((file) => {
+    newAttachments.forEach((attachment) => {
+      if (!attachment.file.type.startsWith('image/')) return;
+
       const reader = new FileReader();
 
       reader.onload = (event) => {
         const result = event.target?.result as string;
         if (!result) return;
 
-        setPreviewUrls((current) => [
-          ...current,
-          result,
-        ]);
+        setPendingAttachments((current) =>
+          current.map((item) =>
+            item.id === attachment.id
+              ? { ...item, previewUrl: result }
+              : item,
+          ),
+        );
       };
 
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(attachment.file);
     });
   };
 
-  const removeImage = (index: number) => {
-    setPendingImages((current) =>
-      current.filter(
-        (_, currentIndex) => currentIndex !== index,
-      ),
+  const removeAttachment = (id: string) => {
+    setPendingAttachments((current) =>
+      current.filter((attachment) => attachment.id !== id),
     );
+  };
 
-    setPreviewUrls((current) =>
-      current.filter(
-        (_, currentIndex) => currentIndex !== index,
-      ),
-    );
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const handleSubmit = () => {
@@ -174,8 +191,8 @@ export default function RepQuickRequest() {
       return;
     }
 
-    if (!details.trim() && pendingImages.length === 0) {
-      toast.error('Enter request details or attach an image');
+    if (!details.trim() && pendingAttachments.length === 0) {
+      toast.error('Enter request details or attach a file');
       return;
     }
 
@@ -184,7 +201,7 @@ export default function RepQuickRequest() {
 
   const canSubmit =
     customerName.trim().length > 0 &&
-    (details.trim().length > 0 || pendingImages.length > 0) &&
+    (details.trim().length > 0 || pendingAttachments.length > 0) &&
     !submitMutation.isPending;
 
   return (
@@ -212,7 +229,7 @@ export default function RepQuickRequest() {
             </h1>
 
             <p className="mt-1 text-xs text-emerald-100 sm:text-sm">
-              Enter request details, attach photos, or use both
+              Enter request details, attach photos or PDFs, or use both
             </p>
           </div>
 
@@ -311,13 +328,13 @@ export default function RepQuickRequest() {
               />
 
               <div className="mt-2 flex items-center justify-between gap-3 text-[10px] font-semibold text-slate-400">
-                <span>Text or photo is required</span>
+                <span>Text or an attachment is required</span>
                 <span>{details.length} characters</span>
               </div>
             </div>
           </section>
 
-          {/* Photos */}
+          {/* Attachments */}
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-5">
               <div className="flex items-center gap-2.5">
@@ -331,47 +348,76 @@ export default function RepQuickRequest() {
                   </p>
 
                   <h2 className="mt-0.5 text-sm font-black text-slate-900">
-                    Photos
+                    Photos &amp; PDFs
                   </h2>
                 </div>
               </div>
 
-              {pendingImages.length > 0 && (
+              {pendingAttachments.length > 0 && (
                 <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
-                  {pendingImages.length}
+                  {pendingAttachments.length}
                 </span>
               )}
             </div>
 
             <div className="p-4 sm:p-5">
               <div className="flex flex-wrap gap-2.5">
-                {previewUrls.map((url, index) => (
-                  <div
-                    key={`${url}-${index}`}
-                    className="group relative h-[76px] w-[76px] overflow-visible rounded-xl border border-slate-200 bg-slate-100 sm:h-20 sm:w-20"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setFullPreview(url)}
-                      className="h-full w-full overflow-hidden rounded-xl"
-                    >
-                      <img
-                        src={url}
-                        alt={`Attachment ${index + 1}`}
-                        className="h-full w-full object-cover"
-                      />
-                    </button>
+                {pendingAttachments.map((attachment) => {
+                  const isPdf = attachment.file.type === 'application/pdf';
 
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute -right-2 -top-2 inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-100 bg-white text-rose-600 shadow-md transition active:scale-95 active:bg-rose-50"
-                      aria-label="Remove image"
+                  return (
+                    <div
+                      key={attachment.id}
+                      className={`group relative overflow-visible rounded-xl border border-slate-200 bg-slate-50 shadow-sm ${
+                        isPdf
+                          ? 'w-64 min-h-20 p-3'
+                          : 'h-20 w-20 sm:h-24 sm:w-24'
+                      }`}
                     >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
+                      {isPdf ? (
+                        <div className="flex h-full items-center gap-3 pr-5">
+                          <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
+                            <FileText className="h-5 w-5" />
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-bold text-slate-800">
+                              {attachment.file.name}
+                            </p>
+                            <p className="mt-0.5 text-[10px] font-semibold text-slate-400">
+                              PDF · {formatFileSize(attachment.file.size)}
+                            </p>
+                          </div>
+                        </div>
+                      ) : attachment.previewUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => setFullPreview(attachment.previewUrl!)}
+                          className="h-full w-full overflow-hidden rounded-xl"
+                        >
+                          <img
+                            src={attachment.previewUrl}
+                            alt={attachment.file.name}
+                            className="h-full w-full object-cover"
+                          />
+                        </button>
+                      ) : (
+                        <div className="flex h-full items-center justify-center">
+                          <ImagePlus className="h-5 w-5 animate-pulse text-slate-300" />
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(attachment.id)}
+                        className="absolute -right-2 -top-2 inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-100 bg-white text-rose-600 shadow-md transition active:scale-95 active:bg-rose-50"
+                        aria-label={`Remove ${attachment.file.name}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
 
                 <button
                   type="button"
@@ -394,16 +440,31 @@ export default function RepQuickRequest() {
                     Camera
                   </span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => attachmentRef.current?.click()}
+                  className="inline-flex h-20 w-24 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 text-slate-500 transition active:border-emerald-400 active:bg-emerald-50 active:text-emerald-700"
+                >
+                  <FileText className="h-5 w-5" />
+                  <span className="text-[10px] font-bold">
+                    Files / PDF
+                  </span>
+                </button>
               </div>
+
+              <p className="mt-3 text-[10px] font-medium leading-5 text-slate-400">
+                Images: JPG, PNG or WEBP up to 5 MB. PDFs up to 10 MB.
+              </p>
 
               <input
                 ref={galleryRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 multiple
                 className="hidden"
                 onChange={(event) => {
-                  addImages(event.target.files);
+                  addAttachments(event.target.files);
                   event.target.value = '';
                 }}
               />
@@ -411,11 +472,23 @@ export default function RepQuickRequest() {
               <input
                 ref={cameraRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 capture="environment"
                 className="hidden"
                 onChange={(event) => {
-                  addImages(event.target.files);
+                  addAttachments(event.target.files);
+                  event.target.value = '';
+                }}
+              />
+
+              <input
+                ref={attachmentRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                multiple
+                className="hidden"
+                onChange={(event) => {
+                  addAttachments(event.target.files);
                   event.target.value = '';
                 }}
               />
@@ -444,7 +517,7 @@ export default function RepQuickRequest() {
             </button>
 
             <p className="mt-2 text-center text-[10px] font-medium text-slate-400">
-              Add request details, a photo, or both
+              Add request details, a photo/PDF, or both
             </p>
           </section>
         </main>
@@ -486,7 +559,9 @@ export default function RepQuickRequest() {
                             .trim()
                             .split(/\r?\n/)
                             .filter((line) => line.trim()).length} lines`
-                        : 'Image only'}
+                        : pendingAttachments.length > 0
+                          ? 'Attachment only'
+                          : 'No details'}
                     </span>
                   </div>
 
@@ -498,14 +573,14 @@ export default function RepQuickRequest() {
                     </div>
                   ) : (
                     <p className="mt-2 rounded-lg bg-slate-50 px-3 py-3 text-xs font-semibold text-slate-400">
-                      No text details entered. This request will use the attached image.
+                      No text details entered. This request will use the attached file(s).
                     </p>
                   )}
                 </div>
 
                 <SummaryRow
-                  label="Photos"
-                  value={String(pendingImages.length)}
+                  label="Attachments"
+                  value={String(pendingAttachments.length)}
                 />
               </div>
 

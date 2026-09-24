@@ -3,13 +3,13 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { quickRequestApi } from '../../services/api/quickRequestApi';
-import type { QuickRequestDto } from '../../services/api/quickRequestApi';
+import type { QuickRequestDto, QuickRequestAttachmentDto } from '../../services/api/quickRequestApi';
 import { downloadQuickRequestPdf } from '../../utils/quickRequestPdf';
-import { downloadPrivateFile } from '../../utils/fileAccess';
+import { openPrivateFile, downloadPrivateFile } from '../../utils/fileAccess';
 import { PrivateImage } from './PrivateImage';
 import toast from 'react-hot-toast';
 import {
-  ChevronDown, ChevronRight, X, Download, FileDown,
+  ChevronDown, ChevronRight, X, Download, FileDown, FileText,
   Clock, CheckCircle, XCircle, Package, ZoomIn,
 } from 'lucide-react';
 
@@ -33,6 +33,31 @@ function fmtDate(d: string) {
     hour: '2-digit', minute: '2-digit',
   });
 }
+
+const isPdfAttachment = (attachment: QuickRequestAttachmentDto) =>
+  attachment.contentType?.toLowerCase() === 'application/pdf' ||
+  attachment.originalFileName?.toLowerCase().endsWith('.pdf');
+
+const formatFileSize = (bytes: number) => {
+  if (!bytes || bytes < 1024) return bytes ? `${bytes} B` : '';
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const getAttachments = (request: QuickRequestDto): QuickRequestAttachmentDto[] => {
+  if (Array.isArray(request.attachments) && request.attachments.length > 0) {
+    return request.attachments;
+  }
+
+  return (request.imageUrls || []).map((url, index) => ({
+    id: `legacy-${request.id}-${index}`,
+    url,
+    originalFileName: `Photo ${index + 1}`,
+    contentType: 'image/*',
+    sizeBytes: 0,
+    uploadedAt: request.createdAt,
+  }));
+};
 
 // ── Image Lightbox ─────────────────────────────────────────────────────────────
 
@@ -233,9 +258,9 @@ export default function QuickRequestSection({ type, isAdmin = false }: QuickRequ
                   </div>
                   <div className="flex items-center gap-3 mt-0.5">
                     <span className="text-xs text-slate-400">{fmtDate(r.createdAt)}</span>
-                    {r.imageUrls.length > 0 && (
+                    {getAttachments(r).length > 0 && (
                       <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                        <ZoomIn className="w-3 h-3" /> {r.imageUrls.length} photo{r.imageUrls.length > 1 ? 's' : ''}
+                        <ZoomIn className="w-3 h-3" /> {getAttachments(r).length} file{getAttachments(r).length > 1 ? 's' : ''}
                       </span>
                     )}
                   </div>
@@ -269,29 +294,104 @@ export default function QuickRequestSection({ type, isAdmin = false }: QuickRequ
                     </div>
                   )}
 
-                  {/* Photos */}
-                  {r.imageUrls.length > 0 && (
+                  {/* Attachments */}
+                  {getAttachments(r).length > 0 && (
                     <div>
                       <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">
-                        Attached Photos ({r.imageUrls.length})
+                        Attachments ({getAttachments(r).length})
                       </p>
-                      <div className="flex flex-wrap gap-2">
-                        {r.imageUrls.map((url: string, i: number) => (
-                          <div
-                            key={i}
-                            className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200 cursor-pointer group shadow-sm hover:shadow-md transition-shadow"
-                            onClick={(e) => { e.stopPropagation(); setLightboxUrl(url); }}
-                          >
-                            <PrivateImage
-                              apiPath={url}
-                              alt={`Photo ${i + 1}`}
-                              className="w-full h-full object-cover group-hover:opacity-90 transition"
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center">
-                              <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition" />
+
+                      <div className="flex flex-wrap gap-3">
+                        {getAttachments(r).map((attachment) => {
+                          const pdf = isPdfAttachment(attachment);
+
+                          if (pdf) {
+                            return (
+                              <div
+                                key={attachment.id}
+                                className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
+                                    <FileText className="h-5 w-5" />
+                                  </div>
+
+                                  <div className="min-w-0 flex-1">
+                                    <p
+                                      className="truncate text-sm font-semibold text-slate-800"
+                                      title={attachment.originalFileName}
+                                    >
+                                      {attachment.originalFileName || 'PDF document'}
+                                    </p>
+
+                                    {formatFileSize(attachment.sizeBytes) && (
+                                      <p className="mt-0.5 text-[11px] text-slate-400">
+                                        {formatFileSize(attachment.sizeBytes)}
+                                      </p>
+                                    )}
+
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          try {
+                                            await openPrivateFile(attachment.url);
+                                          } catch {
+                                            toast.error('Unable to open PDF');
+                                          }
+                                        }}
+                                        className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-100"
+                                      >
+                                        <FileDown className="h-3.5 w-3.5" />
+                                        Open PDF
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          try {
+                                            await downloadPrivateFile(
+                                              attachment.url,
+                                              attachment.originalFileName || 'quick-request.pdf',
+                                            );
+                                          } catch {
+                                            toast.error('Download failed');
+                                          }
+                                        }}
+                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                                      >
+                                        <Download className="h-3.5 w-3.5" />
+                                        Download
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div
+                              key={attachment.id}
+                              className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200 cursor-pointer group shadow-sm hover:shadow-md transition-shadow"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLightboxUrl(attachment.url);
+                              }}
+                            >
+                              <PrivateImage
+                                apiPath={attachment.url}
+                                alt={attachment.originalFileName || 'Attachment'}
+                                className="w-full h-full object-cover group-hover:opacity-90 transition"
+                              />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center">
+                                <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition" />
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
