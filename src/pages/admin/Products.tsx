@@ -6,6 +6,7 @@ import { productsApi } from '../../services/api/productsApi';
 import { systemConfigApi } from '../../services/api/systemConfigApi';
 import { galleryApi } from '../../services/api/galleryApi';
 import type { GalleryItem } from '../../services/api/galleryApi';
+import GalleryImagesModal from '../../components/GalleryImagesModal';
 import * as XLSX from 'xlsx';
 import { exportPriceListPdf } from '../../utils/priceListPdf';
 import { formatCurrency, formatNumber } from '../../utils/formatters';
@@ -25,6 +26,8 @@ export default function AdminProducts() {
   // Gallery state
   const [galleryForm, setGalleryForm] = useState<{ title: string; description: string; displayOrder: number; imageFiles: File[]; imagePreviews: string[] }>({ title: '', description: '', displayOrder: 0, imageFiles: [], imagePreviews: [] });
   const [editingGallery, setEditingGallery] = useState<GalleryItem | null>(null);
+  const [galleryToDelete, setGalleryToDelete] = useState<GalleryItem | null>(null);
+  const [viewingGalleryId, setViewingGalleryId] = useState<string | null>(null);
   const [editGalleryForm, setEditGalleryForm] = useState<{ title: string; description: string; displayOrder: number; isActive: boolean }>({ title: '', description: '', displayOrder: 0, isActive: true });
   const galleryFileRef = useRef<HTMLInputElement>(null);
   // new two‑level filters — multi-select Sets
@@ -105,6 +108,7 @@ export default function AdminProducts() {
     queryFn: () => galleryApi.adminGetAll().then(r => r.data.data),
     enabled: mainTab === 'gallery',
   });
+  const viewingGalleryItem: GalleryItem | undefined = galleryItems?.find((item: GalleryItem) => item.id === viewingGalleryId);
   const createGalleryMut = useMutation({
     mutationFn: (fd: FormData) => galleryApi.adminCreate(fd),
     onSuccess: async (res) => {
@@ -133,7 +137,7 @@ export default function AdminProducts() {
   });
   const deleteGalleryMut = useMutation({
     mutationFn: (id: string) => galleryApi.adminDelete(id),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-gallery'] }); toast.success('Gallery item deleted'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-gallery'] }); setGalleryToDelete(null); toast.success('Gallery item deleted'); },
     onError: () => toast.error('Failed to delete gallery item'),
   });
   const addExtraImageMut = useMutation({
@@ -904,7 +908,7 @@ export default function AdminProducts() {
                         <button
                           type="button"
                           onClick={() => handleGalleryRemoveImage(idx)}
-                          className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs font-bold items-center justify-center hidden group-hover/prev:flex shadow"
+                          className="absolute top-1 right-1 w-7 h-7 bg-red-500 text-white rounded-full text-xs font-bold flex items-center justify-center lg:opacity-0 lg:group-hover/prev:opacity-100 shadow transition-opacity"
                         >×</button>
                       </div>
                     ))}
@@ -919,7 +923,7 @@ export default function AdminProducts() {
                   </div>
                 )}
                 {galleryForm.imagePreviews.length > 0 && (
-                  <p className="text-[11px] text-slate-400">{galleryForm.imagePreviews.length} image{galleryForm.imagePreviews.length !== 1 ? 's' : ''} selected · hover to remove</p>
+                  <p className="text-[11px] text-slate-400">{galleryForm.imagePreviews.length} image{galleryForm.imagePreviews.length !== 1 ? 's' : ''} selected · tap × to remove</p>
                 )}
               </div>
             </div>
@@ -935,7 +939,7 @@ export default function AdminProducts() {
           </div>
 
           {/* Gallery grid */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-3 sm:p-5">
             <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2"><Images className="w-5 h-5 text-indigo-500" /> Gallery Items ({galleryItems?.length ?? 0})</h2>
             {/* hidden input for adding extra images */}
             <input
@@ -961,46 +965,34 @@ export default function AdminProducts() {
                 <p className="text-slate-400">No gallery items yet. Add one above.</p>
               </div>
             ) : (
-              <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }}>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
                 {galleryItems.map((item: GalleryItem) => {
                   const apiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || '';
                   const allImages = [item.imageUrl, ...(item.extraImageUrls || [])];
                   return (
-                    <div key={item.id} className={`relative rounded-2xl overflow-hidden border shadow-sm group flex flex-col ${item.isActive ? 'border-slate-200' : 'border-slate-200 opacity-60'}`}>
-                      {/* Cover image */}
-                      <div className="aspect-square bg-slate-100 overflow-hidden relative">
-                        <img
-                          src={`${apiBase}${item.imageUrl}`}
-                          alt={item.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x400?text=Image'; }}
-                        />
-                        {allImages.length > 1 && (
-                          <span className="absolute bottom-1.5 right-1.5 bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">+{allImages.length - 1}</span>
-                        )}
+                    <div key={item.id} className={`relative min-w-0 rounded-xl sm:rounded-2xl overflow-hidden border shadow-sm group flex flex-col ${item.isActive ? 'border-slate-200' : 'border-slate-200 bg-slate-50'}`}>
+                      {/* Compact mobile cover — tap to see every image without crowding the card. */}
+                      <div className="relative aspect-[4/3] overflow-hidden bg-slate-100 sm:aspect-square">
+                        <button
+                          type="button"
+                          onClick={() => setViewingGalleryId(item.id)}
+                          aria-label={`View all ${allImages.length} photos for ${item.title}`}
+                          className="block h-full w-full focus-visible:outline-2 focus-visible:outline-indigo-500"
+                        >
+                          <img
+                            src={`${apiBase}${item.imageUrl}`}
+                            alt={item.title}
+                            className={`h-full w-full object-contain p-1 transition-transform duration-300 group-hover:scale-105 sm:p-2 ${item.isActive ? '' : 'opacity-70'}`}
+                            onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x400?text=Image'; }}
+                          />
+                        </button>
+                        <span className="pointer-events-none absolute bottom-1 right-1 rounded-full bg-slate-900/75 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                          {allImages.length} photo{allImages.length === 1 ? '' : 's'} · View
+                        </span>
                       </div>
-                      {/* Extra image thumbnails row */}
-                      {(item.extraImageUrls || []).length > 0 && (
-                        <div className="flex gap-1 px-2 pt-1.5 overflow-x-auto pb-1">
-                          {(item.extraImageUrls || []).map((url, idx) => (
-                            <div key={idx} className="relative flex-shrink-0 group/thumb">
-                              <img
-                                src={`${apiBase}${url}`}
-                                alt=""
-                                className="w-9 h-9 object-cover rounded-lg border border-slate-200"
-                                onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/80x80?text=X'; }}
-                              />
-                              <button
-                                onClick={() => removeExtraImageMut.mutate({ id: item.id, index: idx })}
-                                className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] items-center justify-center hidden group-hover/thumb:flex"
-                              >×</button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <div className="p-2.5 flex-1">
-                        <p className="text-sm font-bold text-slate-900 truncate leading-tight">{item.title}</p>
-                        {item.description && <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-snug">{item.description}</p>}
+                      <div className="p-2 sm:p-2.5 flex-1">
+                        <p className="text-xs sm:text-sm font-bold text-slate-900 truncate leading-tight" title={item.title}>{item.title}</p>
+                        {item.description && <p className="hidden text-xs text-slate-500 mt-0.5 leading-snug sm:line-clamp-2">{item.description}</p>}
                         <div className="flex items-center gap-1 mt-1.5">
                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${item.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                             {item.isActive ? 'Visible' : 'Hidden'}
@@ -1009,27 +1001,32 @@ export default function AdminProducts() {
                         </div>
                       </div>
                       {/* Actions */}
-                      <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="grid grid-cols-2 gap-1 border-t border-slate-100 bg-white p-1 sm:gap-1.5 sm:p-1.5 lg:absolute lg:top-1.5 lg:right-1.5 lg:flex lg:border-0 lg:bg-transparent lg:p-0 lg:justify-end lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 transition-opacity">
                         <button
                           onClick={() => { setExtraImageTargetId(item.id); extraImageFileRef.current?.click(); }}
-                          className="p-1 rounded-lg bg-white/90 shadow text-emerald-600 hover:bg-emerald-50 transition"
+                          className="flex flex-1 lg:flex-none items-center justify-center gap-1 min-h-[38px] px-1 lg:min-h-8 lg:px-2 rounded-lg bg-emerald-50 lg:bg-white/95 shadow-sm text-emerald-700 hover:bg-emerald-100 transition focus-visible:outline-2 focus-visible:outline-emerald-500"
+                          aria-label={`Add images to ${item.title}`}
                           title="Add more images"
-                        ><ImagePlus className="w-3 h-3" /></button>
+                        ><ImagePlus className="w-4 h-4" /><span className="text-[10px] font-semibold lg:hidden">Add</span></button>
                         <button
                           onClick={() => { setEditingGallery(item); setEditGalleryForm({ title: item.title, description: item.description || '', displayOrder: item.displayOrder, isActive: item.isActive }); }}
-                          className="p-1 rounded-lg bg-white/90 shadow text-indigo-600 hover:bg-indigo-50 transition"
+                          className="flex flex-1 lg:flex-none items-center justify-center gap-1 min-h-[38px] px-1 lg:min-h-8 lg:px-2 rounded-lg bg-indigo-50 lg:bg-white/95 shadow-sm text-indigo-700 hover:bg-indigo-100 transition focus-visible:outline-2 focus-visible:outline-indigo-500"
+                          aria-label={`Edit ${item.title}`}
                           title="Edit"
-                        ><Pencil className="w-3 h-3" /></button>
+                        ><Pencil className="w-4 h-4" /><span className="text-[10px] font-semibold lg:hidden">Edit</span></button>
                         <button
                           onClick={() => updateGalleryMut.mutate({ id: item.id, data: { title: item.title, description: item.description, displayOrder: item.displayOrder, isActive: !item.isActive } })}
-                          className="p-1 rounded-lg bg-white/90 shadow text-slate-600 hover:bg-slate-100 transition"
+                          className="flex flex-1 lg:flex-none items-center justify-center gap-1 min-h-[38px] px-1 lg:min-h-8 lg:px-2 rounded-lg bg-slate-100 lg:bg-white/95 shadow-sm text-slate-700 hover:bg-slate-200 transition focus-visible:outline-2 focus-visible:outline-indigo-500"
+                          disabled={updateGalleryMut.isPending}
+                          aria-label={`${item.isActive ? 'Hide' : 'Show'} ${item.title}`}
                           title={item.isActive ? 'Hide' : 'Show'}
-                        >{item.isActive ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</button>
+                        >{item.isActive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}<span className="text-[10px] font-semibold lg:hidden">{item.isActive ? 'Hide' : 'Show'}</span></button>
                         <button
-                          onClick={() => { if (confirm('Delete this gallery item?')) deleteGalleryMut.mutate(item.id); }}
-                          className="p-1 rounded-lg bg-white/90 shadow text-red-500 hover:bg-red-50 transition"
+                          onClick={() => setGalleryToDelete(item)}
+                          className="flex flex-1 lg:flex-none items-center justify-center gap-1 min-h-[38px] px-1 lg:min-h-8 lg:px-2 rounded-lg bg-red-50 lg:bg-white/95 shadow-sm text-red-600 hover:bg-red-100 transition focus-visible:outline-2 focus-visible:outline-red-500"
+                          aria-label={`Delete ${item.title}`}
                           title="Delete"
-                        ><Trash2 className="w-3 h-3" /></button>
+                        ><Trash2 className="w-4 h-4" /><span className="text-[10px] font-semibold lg:hidden">Delete</span></button>
                       </div>
                     </div>
                   );
@@ -1038,6 +1035,41 @@ export default function AdminProducts() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Separate scrollable image manager prevents extra images from stretching mobile cards. */}
+      {viewingGalleryItem && (
+        <GalleryImagesModal
+          item={viewingGalleryItem}
+          onClose={() => setViewingGalleryId(null)}
+          onAddImage={() => { setExtraImageTargetId(viewingGalleryItem.id); extraImageFileRef.current?.click(); }}
+          onRemoveImage={(index) => removeExtraImageMut.mutate({ id: viewingGalleryItem.id, index })}
+          adding={addExtraImageMut.isPending}
+          removing={removeExtraImageMut.isPending}
+        />
+      )}
+
+      {/* Gallery delete confirmation — accessible, touch-friendly custom modal */}
+      {galleryToDelete && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="presentation">
+          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => { if (!deleteGalleryMut.isPending) setGalleryToDelete(null); }} />
+          <div role="alertdialog" aria-modal="true" aria-labelledby="gallery-delete-title" aria-describedby="gallery-delete-description" className="relative w-full max-w-sm rounded-2xl bg-white p-5 sm:p-6 shadow-2xl">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+              <Trash2 className="h-6 w-6" />
+            </div>
+            <h3 id="gallery-delete-title" className="text-lg font-bold text-slate-900">Delete gallery item?</h3>
+            <p id="gallery-delete-description" className="mt-2 text-sm leading-relaxed text-slate-600">
+              Are you sure you want to delete <strong className="text-slate-800">{galleryToDelete.title}</strong>? This action cannot be undone.
+            </p>
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" autoFocus disabled={deleteGalleryMut.isPending} onClick={() => setGalleryToDelete(null)} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Cancel</button>
+              <button type="button" disabled={deleteGalleryMut.isPending} onClick={() => deleteGalleryMut.mutate(galleryToDelete.id)} className="min-h-11 rounded-xl bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">
+                {deleteGalleryMut.isPending ? 'Deleting…' : 'Delete item'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Edit gallery item modal */}
