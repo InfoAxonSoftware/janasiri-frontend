@@ -1948,7 +1948,7 @@ export default function AdminOrders() {
               <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                 <Trash2 className="w-10 h-10 mb-3 opacity-20" />
                 <p className="text-sm font-medium">Trash is empty</p>
-                <p className="text-xs mt-1 text-slate-300">Items remain here until restored or permanently removed from your view.</p>
+                <p className="text-xs mt-1 text-slate-300">Admin-deleted records remain hidden from all users. Removing them from Admin Trash retains the business and audit records.</p>
               </div>
             );
             return (<>

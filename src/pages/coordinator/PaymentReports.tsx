@@ -85,7 +85,7 @@ export default function CoordinatorPaymentReports() {
   const [evidencePayment, setEvidencePayment] = useState<RepPaymentDto | null>(null);
   const [statusPayment, setStatusPayment] = useState<RepPaymentDto | null>(null);
   const [confirmState, setConfirmState] = useState<{
-    type: 'trash' | 'restore' | 'bulk-trash';
+    type: 'trash' | 'restore' | 'permanent' | 'bulk-trash';
     payment?: RepPaymentDto;
   } | null>(null);
 
@@ -179,6 +179,16 @@ export default function CoordinatorPaymentReports() {
       toast.success('Payment report restored');
     },
     onError: () => toast.error('Restore failed'),
+  });
+
+  const purgeMut = useMutation({
+    mutationFn: repPaymentsApi.coordinatorPurge,
+    onSuccess: async () => {
+      setConfirmState(null);
+      await invalidateReports();
+      toast.success('Removed from your Trash; payment evidence retained');
+    },
+    onError: () => toast.error('Could not remove report from Trash'),
   });
 
   const updateStatusMut = useMutation({
@@ -340,6 +350,8 @@ export default function CoordinatorPaymentReports() {
 
     if (confirmState.type === 'trash') {
       trashMut.mutate(confirmState.payment.id);
+    } else if (confirmState.type === 'permanent') {
+      purgeMut.mutate(confirmState.payment.id);
     } else {
       restoreMut.mutate(confirmState.payment.id);
     }
@@ -682,7 +694,7 @@ export default function CoordinatorPaymentReports() {
                       <td className="whitespace-nowrap px-4 py-3 text-right text-xs text-slate-500">
                         {formatDateTime(
                           activeTab === 'trash'
-                            ? payment.coordinatorDeletedAt ?? payment.createdAt
+                            ? payment.deletedAt ?? payment.createdAt
                             : payment.createdAt,
                         )}
                       </td>
@@ -724,17 +736,24 @@ export default function CoordinatorPaymentReports() {
                               </button>
                             </>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={() => setConfirmState({
-                                type: 'restore',
-                                payment,
-                              })}
-                              title="Restore"
-                              className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50"
-                            >
-                              <RotateCcw className="h-4 w-4" />
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmState({ type: 'restore', payment })}
+                                title="Restore"
+                                className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmState({ type: 'permanent', payment })}
+                                title="Remove from your Trash"
+                                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -817,16 +836,24 @@ export default function CoordinatorPaymentReports() {
                         </button>
                       </>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => setConfirmState({
-                          type: 'restore',
-                          payment,
-                        })}
-                        className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmState({ type: 'restore', payment })}
+                          title="Restore"
+                          className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmState({ type: 'permanent', payment })}
+                          title="Remove from your Trash"
+                          className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -898,29 +925,35 @@ export default function CoordinatorPaymentReports() {
 
       <PaymentReportConfirmDialog
         open={!!confirmState}
-        variant={confirmState?.type === 'restore' ? 'restore' : 'trash'}
+        variant={confirmState?.type === 'restore' ? 'restore' : confirmState?.type === 'permanent' ? 'delete' : 'trash'}
         title={
           confirmState?.type === 'restore'
             ? 'Restore payment report?'
-            : confirmState?.type === 'bulk-trash'
-              ? 'Move selected reports to trash?'
-              : 'Move payment report to trash?'
+            : confirmState?.type === 'permanent'
+              ? 'Remove payment report from your Trash?'
+              : confirmState?.type === 'bulk-trash'
+                ? 'Move selected reports to trash?'
+                : 'Move payment report to trash?'
         }
         description={
           confirmState?.type === 'restore'
             ? 'This report will return to your Active list.'
-            : confirmState?.type === 'bulk-trash'
-              ? `${selectedIds.size} selected report(s) will move to your Coordinator Trash only.`
-              : 'This report will move to your Coordinator Trash only. Admin and Sales Rep visibility will not change.'
+            : confirmState?.type === 'permanent'
+              ? 'Remove this item from your private Trash only. Payment report and evidence remain stored for audit.'
+              : confirmState?.type === 'bulk-trash'
+                ? `${selectedIds.size} selected report(s) will move to your Coordinator Trash only.`
+                : 'This report will move to your Coordinator Trash only. Admin and Sales Rep visibility will not change.'
         }
         reportNumber={confirmState?.payment?.reportNumber}
         customerName={confirmState?.payment?.customerName}
         confirmLabel={
           confirmState?.type === 'restore'
             ? 'Restore'
-            : 'Move to Trash'
+            : confirmState?.type === 'permanent'
+              ? 'Remove from Trash'
+              : 'Move to Trash'
         }
-        isPending={trashMut.isPending || restoreMut.isPending || bulkTrashMut.isPending}
+        isPending={trashMut.isPending || restoreMut.isPending || purgeMut.isPending || bulkTrashMut.isPending}
         onClose={() => setConfirmState(null)}
         onConfirm={handleConfirm}
       />

@@ -5,7 +5,7 @@ import { PrivateImage } from '../../components/common/PrivateImage';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   coordinatorGetQuotations, coordinatorApproveQuotation, coordinatorRejectQuotation,
-  coordinatorDeleteQuotation, coordinatorGetQuotationsTrash, coordinatorRestoreQuotation,
+  coordinatorDeleteQuotation, coordinatorGetQuotationsTrash, coordinatorRestoreQuotation, coordinatorPurgeQuotation,
 } from '../../services/api/quotationApi';
 import { coordinatorGetReps } from '../../services/api/coordinatorApi';
 import { customersApi } from '../../services/api/customersApi';
@@ -84,6 +84,11 @@ export default function CoordinatorQuotations() {
     onSuccess: () => { toast.success('Quotation restored', { id: 'coord-quotation-restore' }); queryClient.invalidateQueries({ queryKey: ['coordinator-quotations'] }); queryClient.invalidateQueries({ queryKey: ['coordinator-quotations-trash'] }); },
     onError: () => toast.error('Failed to restore', { id: 'coord-quotation-restore' }),
   });
+  const purgeMut = useMutation({
+    mutationFn: (id) => coordinatorPurgeQuotation(id),
+    onSuccess: () => { toast.success('Removed from your Trash; record retained'); queryClient.invalidateQueries({ queryKey: ['coordinator-quotations'] }); queryClient.invalidateQueries({ queryKey: ['coordinator-quotations-trash'] }); },
+    onError: () => toast.error('Failed to remove from Trash'),
+  });
   const quickUpdateMut = useMutation({
     mutationFn: ({ id, status, notes }) => quickRequestApi.coordinatorUpdateStatus(id, { status, adminNotes: notes }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['coordinator-quick-quotations'] }); toast.success('Quick quotation updated', { id: 'coord-quick-update' }); },
@@ -93,6 +98,11 @@ export default function CoordinatorQuotations() {
     mutationFn: (id) => quickRequestApi.coordinatorRestore(id),
     onSuccess: () => { toast.success('Quotation restored', { id: 'coord-quotation-restore' }); queryClient.invalidateQueries({ queryKey: ['coordinator-quick-quotations'] }); queryClient.invalidateQueries({ queryKey: ['coordinator-quick-quotations-trash'] }); },
     onError: () => toast.error('Failed to restore', { id: 'coord-quotation-restore' }),
+  });
+  const quickPurgeMut = useMutation({
+    mutationFn: (id) => quickRequestApi.coordinatorPurge(id),
+    onSuccess: () => { toast.success('Removed from your Trash; record retained'); queryClient.invalidateQueries({ queryKey: ['coordinator-quick-quotations'] }); queryClient.invalidateQueries({ queryKey: ['coordinator-quick-quotations-trash'] }); },
+    onError: () => toast.error('Failed to remove from Trash'),
   });
 
   const allItems = data?.items || [];
@@ -113,7 +123,7 @@ export default function CoordinatorQuotations() {
 
   const filteredItems = useMemo(() => applyFilters(allItems), [allItems, search, statusFilter, repIdFilter, customerIdFilter, fromDate, toDate, customers]); // eslint-disable-line
   const quickTrashRows = useMemo(() => {
-    let rows = (quickTrashData).map((r) => ({ _isQuick: true, _quick: r, id: r.id, quotationNumber: r.requestNumber, customerName: r.customerName, repName: r.repName, createdAt: r.createdAt, deletedAt: r.updatedAt || r.createdAt, status: r.status, totalAmount: 0, shopName: r.customerName }));
+    let rows = (quickTrashData).map((r) => ({ _isQuick: true, _quick: r, id: r.id, quotationNumber: r.requestNumber, customerName: r.customerName, repName: r.repName, createdAt: r.createdAt, deletedAt: r.deletedAt || r.createdAt, status: r.status, totalAmount: 0, shopName: r.customerName }));
     if (search.trim()) { const sq = search.toLowerCase(); rows = rows.filter(r => (r.quotationNumber || '').toLowerCase().includes(sq) || (r.customerName || '').toLowerCase().includes(sq)); }
     return rows;
   }, [quickTrashData, search]); // eslint-disable-line
@@ -767,7 +777,7 @@ export default function CoordinatorQuotations() {
               <Trash2 className="w-10 h-10 mb-3 opacity-20" />
               {(trashData?.items?.length > 0 || quickTrashData.length > 0)
                 ? <><p className="text-sm font-medium">No matches</p><p className="text-xs mt-1 text-slate-300">Try adjusting or clearing the filters</p></>
-                : <><p className="text-sm font-medium">Trash is empty</p><p className="text-xs mt-1 text-slate-300">Deleted quotations remain in Trash for up to 7 days</p></>
+                : <><p className="text-sm font-medium">Trash is empty</p><p className="text-xs mt-1 text-slate-300">Deleted quotations stay in your personal Trash for up to 7 days, then leave Trash. Business records are retained.</p></>
               }
             </div>
           ) : (<>
@@ -783,14 +793,22 @@ export default function CoordinatorQuotations() {
                     </div>
                     {!q._isQuick && <p className="text-sm font-bold text-slate-900 tabular-nums shrink-0">{fmtAmt(q.totalAmount)}</p>}
                   </div>
-                  <div className="flex items-center justify-between mt-2.5">
+                  <div className="flex items-center justify-between gap-2 mt-2.5">
                     <StatusBadge status={q.status} />
-                    <button
-                      onClick={() => q._isQuick ? quickRestoreMut.mutate(q._quick.id) : restoreMut.mutate(q.id)}
-                      disabled={restoreMut.isPending || quickRestoreMut.isPending}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xs font-medium hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition disabled:opacity-50">
-                      <RotateCcw className="w-3.5 h-3.5" /> Restore
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => q._isQuick ? quickRestoreMut.mutate(q._quick.id) : restoreMut.mutate(q.id)}
+                        disabled={restoreMut.isPending || quickRestoreMut.isPending}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xs font-medium hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition disabled:opacity-50">
+                        <RotateCcw className="w-3.5 h-3.5" /> Restore
+                      </button>
+                      <button
+                        onClick={() => window.confirm('Remove this item from your personal Trash? It will stay hidden from your account and the business record will be retained.') && (q._isQuick ? quickPurgeMut.mutate(q._quick.id) : purgeMut.mutate(q.id))}
+                        disabled={purgeMut.isPending || quickPurgeMut.isPending}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-lg text-xs font-medium hover:bg-slate-200 transition disabled:opacity-50">
+                        <Trash2 className="w-3.5 h-3.5" /> Remove
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -818,13 +836,21 @@ export default function CoordinatorQuotations() {
                       <td className="px-4 py-3 border-r border-slate-100 text-right font-bold text-slate-900">{q._isQuick ? '—' : fmtAmt(q.totalAmount)}</td>
                       <td className="px-4 py-3 border-r border-slate-100 text-center"><StatusBadge status={q.status} /></td>
                       <td className="px-4 py-3 border-r border-slate-100 text-right text-slate-400 text-xs">{q.deletedAt ? formatDateTime(q.deletedAt) : '—'}</td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => q._isQuick ? quickRestoreMut.mutate(q._quick.id) : restoreMut.mutate(q.id)}
-                          disabled={restoreMut.isPending || quickRestoreMut.isPending}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xs font-medium hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition disabled:opacity-50">
-                          <RotateCcw className="w-3.5 h-3.5" /> Restore
-                        </button>
+                      <td className="px-3 py-3 text-center">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            onClick={() => q._isQuick ? quickRestoreMut.mutate(q._quick.id) : restoreMut.mutate(q.id)}
+                            disabled={restoreMut.isPending || quickRestoreMut.isPending}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xs font-medium hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition disabled:opacity-50">
+                            <RotateCcw className="w-3.5 h-3.5" /> Restore
+                          </button>
+                          <button
+                            onClick={() => window.confirm('Remove this item from your personal Trash? It will stay hidden from your account and the business record will be retained.') && (q._isQuick ? quickPurgeMut.mutate(q._quick.id) : purgeMut.mutate(q.id))}
+                            disabled={purgeMut.isPending || quickPurgeMut.isPending}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-lg text-xs font-medium hover:bg-slate-200 transition disabled:opacity-50">
+                            <Trash2 className="w-3.5 h-3.5" /> Remove
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

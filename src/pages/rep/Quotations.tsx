@@ -3,7 +3,7 @@ import { Fragment, useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { PrivateImage } from '../../components/common/PrivateImage';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { repGetQuotations, repDeleteQuotation, repGetQuotationsTrash, repRestoreQuotation } from '../../services/api/quotationApi';
+import { repGetQuotations, repDeleteQuotation, repGetQuotationsTrash, repRestoreQuotation, repPurgeQuotation } from '../../services/api/quotationApi';
 import toast from 'react-hot-toast';
 import { customersApi } from '../../services/api/customersApi';
 import { quickRequestApi } from '../../services/api/quickRequestApi';
@@ -109,6 +109,16 @@ export default function RepQuotations() {
     onError: () => toast.error('Failed to restore', { id: 'quotation-restore' }),
   });
 
+  const purgeMut = useMutation({
+    mutationFn: (id: string) => repPurgeQuotation(id),
+    onSuccess: () => {
+      toast.success('Removed from your Trash; record retained');
+      queryClient.invalidateQueries({ queryKey: ['rep-quotations'] });
+      queryClient.invalidateQueries({ queryKey: ['rep-quotations-trash'] });
+    },
+    onError: () => toast.error('Failed to remove from Trash'),
+  });
+
   const quickDeleteMut = useMutation({
     mutationFn: (id: string) => quickRequestApi.repDelete(id),
     onSuccess: () => {
@@ -127,6 +137,16 @@ export default function RepQuotations() {
       queryClient.invalidateQueries({ queryKey: ['rep-quick-quotations-trash'] });
     },
     onError: () => toast.error('Failed to restore', { id: 'quotation-restore' }),
+  });
+
+  const quickPurgeMut = useMutation({
+    mutationFn: (id: string) => quickRequestApi.repPurge(id),
+    onSuccess: () => {
+      toast.success('Removed from your Trash; record retained');
+      queryClient.invalidateQueries({ queryKey: ['rep-quick-quotations'] });
+      queryClient.invalidateQueries({ queryKey: ['rep-quick-quotations-trash'] });
+    },
+    onError: () => toast.error('Failed to remove from Trash'),
   });
 
   const quickQuotationRows = useMemo(() => (quickData as any[]).map((r: any) => ({
@@ -542,7 +562,7 @@ export default function RepQuotations() {
               <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                 <Trash2 className="w-10 h-10 mb-3 opacity-20" />
                 <p className="text-sm font-medium">Trash is empty</p>
-                <p className="text-xs mt-1 text-slate-300">Deleted quotations appear here for 7 days then are permanently removed</p>
+                <p className="text-xs mt-1 text-slate-300">Deleted quotations stay in your personal Trash for up to 7 days, then leave Trash. Business records are retained.</p>
               </div>
             ) : (
               <>
@@ -565,13 +585,20 @@ export default function RepQuotations() {
                             </span>
                           )}
                         </div>
-                        <div className="flex justify-end mt-2.5">
+                        <div className="flex justify-end gap-2 mt-2.5">
                           <button
                             onClick={() => q._isQuick ? quickRestoreMut.mutate(q._quick.id) : restoreMut.mutate(q.id)}
                             disabled={restoreMut.isPending || quickRestoreMut.isPending}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg text-xs font-medium hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition disabled:opacity-50"
                           >
                             <RotateCcw className="w-3.5 h-3.5" /> Restore
+                          </button>
+                          <button
+                            onClick={() => window.confirm('Remove this item from your personal Trash? It will stay hidden from your account and the business record will be retained.') && (q._isQuick ? quickPurgeMut.mutate(q._quick.id) : purgeMut.mutate(q.id))}
+                            disabled={purgeMut.isPending || quickPurgeMut.isPending}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-lg text-xs font-medium hover:bg-slate-200 transition disabled:opacity-50"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Remove
                           </button>
                         </div>
                       </div>
@@ -610,14 +637,23 @@ export default function RepQuotations() {
                                 </span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-center">
-                              <button
-                                onClick={() => q._isQuick ? quickRestoreMut.mutate(q._quick.id) : restoreMut.mutate(q.id)}
-                                disabled={restoreMut.isPending || quickRestoreMut.isPending}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg text-xs font-medium hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition disabled:opacity-50"
-                              >
-                                <RotateCcw className="w-3.5 h-3.5" /> Restore
-                              </button>
+                            <td className="px-3 py-3 text-center">
+                              <div className="inline-flex items-center gap-2">
+                                <button
+                                  onClick={() => q._isQuick ? quickRestoreMut.mutate(q._quick.id) : restoreMut.mutate(q.id)}
+                                  disabled={restoreMut.isPending || quickRestoreMut.isPending}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg text-xs font-medium hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition disabled:opacity-50"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" /> Restore
+                                </button>
+                                <button
+                                  onClick={() => window.confirm('Remove this item from your personal Trash? It will stay hidden from your account and the business record will be retained.') && (q._isQuick ? quickPurgeMut.mutate(q._quick.id) : purgeMut.mutate(q.id))}
+                                  disabled={purgeMut.isPending || quickPurgeMut.isPending}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-lg text-xs font-medium hover:bg-slate-200 transition disabled:opacity-50"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" /> Remove
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );

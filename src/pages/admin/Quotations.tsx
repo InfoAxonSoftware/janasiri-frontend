@@ -3,7 +3,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { PrivateImage } from '../../components/common/PrivateImage';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { adminApproveQuotation, adminGetQuotations, adminRejectQuotation, adminSoftDeleteQuotation, adminGetQuotationsTrash, adminRestoreQuotation } from '../../services/api/quotationApi';
+import { adminApproveQuotation, adminGetQuotations, adminRejectQuotation, adminSoftDeleteQuotation, adminGetQuotationsTrash, adminRestoreQuotation, adminPurgeQuotation } from '../../services/api/quotationApi';
 import { repsApi } from '../../services/api/repsApi';
 import { customersApi } from '../../services/api/customersApi';
 import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
@@ -46,6 +46,7 @@ export default function AdminQuotations() {
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [filterSubPanel, setFilterSubPanel] = useState<'status' | 'rep' | 'customer' | 'date' | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [purgeTarget, setPurgeTarget] = useState<any | null>(null);
   const [quickLightbox, setQuickLightbox] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
@@ -135,6 +136,35 @@ export default function AdminQuotations() {
     onError: () => toast.error('Failed to restore'),
   });
 
+  const purgeMut = useMutation({
+    mutationFn: (item: any) => item._isQuick
+      ? quickRequestApi.adminPurge(item._quick.id)
+      : adminPurgeQuotation(item.id),
+    onSuccess: (_response, item) => {
+      toast.success('Removed from Admin Trash; audit record retained');
+      setPurgeTarget(null);
+      queryClient.invalidateQueries({ queryKey: ['admin-quotations-trash'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-quick-quotations-trash'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-quotations'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-quick-quotations'] });
+    },
+    onError: () => toast.error('Could not remove item from Admin Trash'),
+  });
+
+  const restoreTrashItem = (item: any) => {
+    if (item._isQuick) {
+      quickRequestApi.adminRestore(item._quick.id)
+        .then(() => {
+          toast.success('Quick quotation restored');
+          queryClient.invalidateQueries({ queryKey: ['admin-quick-quotations-trash'] });
+          queryClient.invalidateQueries({ queryKey: ['admin-quick-quotations'] });
+        })
+        .catch(() => toast.error('Failed to restore'));
+      return;
+    }
+    restoreMut.mutate(item.id);
+  };
+
   const quickUpdateMut = useMutation({
     mutationFn: ({ id, status, notes }: { id: string; status: string; notes: string }) =>
       quickRequestApi.adminUpdateStatus(id, { status, adminNotes: notes }),
@@ -148,6 +178,12 @@ export default function AdminQuotations() {
   const { data: trashData, isLoading: trashLoading } = useQuery({
     queryKey: ['admin-quotations-trash', page],
     queryFn: () => adminGetQuotationsTrash(page, 20),
+    enabled: activeTab === 'trash',
+  });
+
+  const { data: quickTrashData = [], isLoading: quickTrashLoading } = useQuery({
+    queryKey: ['admin-quick-quotations-trash'],
+    queryFn: () => quickRequestApi.adminGetTrash('Quotation').then(r => r.data.data),
     enabled: activeTab === 'trash',
   });
 
@@ -195,11 +231,43 @@ export default function AdminQuotations() {
     [allItems, search, statusFilter, repIdFilter, customerIdFilter, fromDate, toDate, customers]
   );
 
-  const filteredTrashItems: Quotation[] = useMemo(
-    () => applyFilters((trashData as any)?.items || []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trashData, search, statusFilter, repIdFilter, customerIdFilter, fromDate, toDate, customers]
-  );
+  const filteredTrashItems: any[] = useMemo(() => {
+    const regular = applyFilters((trashData as any)?.items || []);
+    const quick = (quickTrashData as any[]).map((r: any) => ({
+      _isQuick: true,
+      _quick: r,
+      id: r.id,
+      quotationNumber: r.requestNumber,
+      customerName: r.customerName,
+      shopName: r.customerName,
+      repName: r.repName,
+      repId: r.repId,
+      customerId: '',
+      createdAt: r.createdAt,
+      deletedAt: r.deletedAt || r.createdAt,
+      status: r.status,
+      totalAmount: 0,
+    })).filter((q: any) => {
+      if (statusFilter && q.status !== statusFilter) return false;
+      if (repIdFilter && q.repId !== repIdFilter) return false;
+      if (customerIdFilter) {
+        const selectedCustomer = customers.find(c => c.id === customerIdFilter)?.shopName?.toLowerCase();
+        if (!selectedCustomer || (q.customerName || '').toLowerCase() !== selectedCustomer) return false;
+      }
+      if (fromDate && q.createdAt && q.createdAt < fromDate) return false;
+      if (toDate && q.createdAt && q.createdAt.slice(0, 10) > toDate) return false;
+      if (search.trim()) {
+        const term = search.toLowerCase();
+        if (!(q.quotationNumber || '').toLowerCase().includes(term) &&
+            !(q.customerName || '').toLowerCase().includes(term)) return false;
+      }
+      return true;
+    });
+    return [...regular, ...quick].sort((a, b) =>
+      (b.deletedAt || b.createdAt || '').localeCompare(a.deletedAt || a.createdAt || '')
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trashData, quickTrashData, search, statusFilter, repIdFilter, customerIdFilter, fromDate, toDate, customers]);
 
   const sortedItems = useMemo(() => {
     return [...filteredItems].sort((a, b) => {
@@ -1244,14 +1312,14 @@ export default function AdminQuotations() {
       {/* ── Trash tab content ────────────────────────────────────────────── */}
       {activeTab === 'trash' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          {trashLoading ? (
+          {trashLoading || quickTrashLoading ? (
             <div className="p-10 text-center text-slate-400 text-sm">Loading trash…</div>
           ) : filteredTrashItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-400">
               <Trash2 className="w-10 h-10 mb-3 opacity-20" />
               {(trashData as any)?.items?.length > 0
                 ? <><p className="text-sm font-medium">No matches</p><p className="text-xs mt-1 text-slate-300">Try adjusting or clearing the filters</p></>
-                : <><p className="text-sm font-medium">Trash is empty</p><p className="text-xs mt-1 text-slate-300">Deleted quotations remain in Trash for up to 7 days</p></>
+                : <><p className="text-sm font-medium">Trash is empty</p><p className="text-xs mt-1 text-slate-300">Admin Trash entries are retained for 7 days; business records remain available for audit</p></>
               }
             </div>
           ) : (<>
@@ -1267,15 +1335,23 @@ export default function AdminQuotations() {
                     </div>
                     <p className="text-sm font-bold text-slate-900 tabular-nums shrink-0">{fmtAmt(q.totalAmount)}</p>
                   </div>
-                  <div className="flex items-center justify-between mt-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mt-2.5">
                     <StatusBadge status={q.status} />
-                    <button
-                      onClick={() => restoreMut.mutate(q.id)}
-                      disabled={restoreMut.isPending}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xs font-medium hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition disabled:opacity-50"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" /> Restore
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => restoreTrashItem(q)}
+                        disabled={restoreMut.isPending}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xs font-medium hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition disabled:opacity-50"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" /> Restore
+                      </button>
+                      <button
+                        onClick={() => setPurgeTarget(q)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-lg text-xs font-medium hover:bg-slate-200 transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Remove
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1302,14 +1378,22 @@ export default function AdminQuotations() {
                       <td className="px-4 py-3 border-r border-slate-100 text-right font-bold text-slate-900">{fmtAmt(q.totalAmount)}</td>
                       <td className="px-4 py-3 border-r border-slate-100 text-center"><StatusBadge status={q.status} /></td>
                       <td className="px-4 py-3 border-r border-slate-100 text-right text-slate-400 text-xs">{q.deletedAt ? formatDateTime(q.deletedAt) : '—'}</td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => restoreMut.mutate(q.id)}
-                          disabled={restoreMut.isPending}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xs font-medium hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition disabled:opacity-50"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" /> Restore
-                        </button>
+                      <td className="px-3 py-3 text-center">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            onClick={() => restoreTrashItem(q)}
+                            disabled={restoreMut.isPending}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xs font-medium hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition disabled:opacity-50"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" /> Restore
+                          </button>
+                          <button
+                            onClick={() => setPurgeTarget(q)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-lg text-xs font-medium hover:bg-slate-200 transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Remove
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1437,6 +1521,32 @@ export default function AdminQuotations() {
                   className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition"
                 >
                   {deleteMut.isPending ? 'Deleting…' : 'Move to Trash'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      {purgeTarget && createPortal(
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 backdrop-blur-[2px] px-4">
+          <div className="w-full max-w-md mt-24 rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="p-5 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-900">Remove from Admin Trash?</h3>
+              <p className="text-xs text-slate-500 mt-1">{purgeTarget.quotationNumber}</p>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-sm text-slate-600">
+                This hides the item from Admin Trash permanently. The business record and linked audit data are retained; no database record or attachment is physically deleted.
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setPurgeTarget(null)} className="flex-1 py-2.5 bg-slate-100 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-200 transition">Cancel</button>
+                <button
+                  onClick={() => purgeMut.mutate(purgeTarget)}
+                  disabled={purgeMut.isPending}
+                  className="flex-1 py-2.5 bg-slate-800 text-white rounded-xl text-sm font-semibold hover:bg-slate-900 disabled:opacity-50 transition"
+                >
+                  {purgeMut.isPending ? 'Removing…' : 'Remove from Trash'}
                 </button>
               </div>
             </div>
