@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { PrivateImage } from '../../components/common/PrivateImage';
@@ -767,7 +767,7 @@ export default function CoordinatorQuotations() {
               <Trash2 className="w-10 h-10 mb-3 opacity-20" />
               {(trashData?.items?.length > 0 || quickTrashData.length > 0)
                 ? <><p className="text-sm font-medium">No matches</p><p className="text-xs mt-1 text-slate-300">Try adjusting or clearing the filters</p></>
-                : <><p className="text-sm font-medium">Trash is empty</p><p className="text-xs mt-1 text-slate-300">Deleted quotations appear here for 30 days</p></>
+                : <><p className="text-sm font-medium">Trash is empty</p><p className="text-xs mt-1 text-slate-300">Deleted quotations remain in Trash for up to 7 days</p></>
               }
             </div>
           ) : (<>
@@ -907,7 +907,7 @@ export default function CoordinatorQuotations() {
               </button>
             </div>
             <div className="p-5 space-y-3">
-              <p className="text-sm text-slate-600">Trashed quotations are permanently deleted after 30 days.</p>
+              <p className="text-sm text-slate-600">Only your account is affected. You can restore from your Trash while the item is retained.</p>
               <div className="flex gap-3">
                 <button onClick={() => setDeleteConfirmOpen(false)} className="flex-1 py-2.5 bg-slate-100 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-200 transition">Cancel</button>
                 <button

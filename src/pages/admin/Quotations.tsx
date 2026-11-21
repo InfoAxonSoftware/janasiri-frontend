@@ -1251,7 +1251,7 @@ export default function AdminQuotations() {
               <Trash2 className="w-10 h-10 mb-3 opacity-20" />
               {(trashData as any)?.items?.length > 0
                 ? <><p className="text-sm font-medium">No matches</p><p className="text-xs mt-1 text-slate-300">Try adjusting or clearing the filters</p></>
-                : <><p className="text-sm font-medium">Trash is empty</p><p className="text-xs mt-1 text-slate-300">Deleted quotations appear here for 30 days</p></>
+                : <><p className="text-sm font-medium">Trash is empty</p><p className="text-xs mt-1 text-slate-300">Deleted quotations remain in Trash for up to 7 days</p></>
               }
             </div>
           ) : (<>
@@ -1399,7 +1399,7 @@ export default function AdminQuotations() {
               </button>
             </div>
             <div className="p-5 space-y-3">
-              <p className="text-sm text-slate-600">Trashed quotations are permanently deleted after 30 days.</p>
+              <p className="text-sm text-slate-600">These quotations will be hidden from all users. Cleanup is scheduled after 7 days; financial audit records are protected.</p>
               <div className="flex gap-3">
                 <button onClick={() => setDeleteConfirmOpen(false)} className="flex-1 py-2.5 bg-slate-100 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-200 transition">Cancel</button>
                 <button
