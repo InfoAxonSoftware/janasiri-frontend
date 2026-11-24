@@ -1299,7 +1299,7 @@ export default function RepOrders() {
             <EmptyState
               icon={Trash2}
               title="Trash is empty"
-              description="Items remain here until restored or permanently removed from your view."
+              description="Items remain in your personal Trash for up to 7 days. Removing them only hides them from your view; business records are retained."
             />
           ) : (
             <>

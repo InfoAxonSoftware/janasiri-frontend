@@ -130,6 +130,9 @@ export const ordersApi = {
   customerGetTrash: (page = 1, pageSize = 20) =>
     api.get<ApiResponse<PagedResult<Order>>>('/customer/orders/trash', { params: { page, pageSize } }),
 
+  customerPurge: (id: string) =>
+    api.post<ApiResponse<string>>('/customer/orders/' + id + '/permanent'),
+
   customerRestore: (id: string) =>
     api.post<ApiResponse<string>>(`/customer/orders/${id}/restore`),
 

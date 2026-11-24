@@ -111,6 +111,16 @@ export default function CustomerOrders() {
     },
   });
 
+  const purgeMut = useMutation({
+    mutationFn: (id: string) => ordersApi.customerPurge(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customer-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['customer-orders-trash'] });
+      toast.success('Removed from your Trash; record retained');
+    },
+    onError: () => toast.error('Could not remove order from Trash'),
+  });
+
   const { data: customerProfile } = useQuery({
     queryKey: ['customer-profile-for-order-tax-mode'],
     queryFn: () => customersApi.customerGetProfile().then((r): any => r.data.data),
@@ -254,7 +264,7 @@ export default function CustomerOrders() {
         {activeTab === 'trash' ? (
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-100">
-              <span className="text-sm font-semibold text-slate-700">Trash (items remain until restored)</span>
+              <span className="text-sm font-semibold text-slate-700">My Trash (entries expire after 7 days; business records are retained)</span>
             </div>
             {trashLoading ? (
               <div className="p-8 text-center text-slate-400 text-sm">Loading...</div>
@@ -276,10 +286,19 @@ export default function CustomerOrders() {
                       <td className="px-4 py-3 font-medium text-slate-800">{o.orderNumber}</td>
                       <td className="px-4 py-3 text-slate-500">{formatDateTime(o.orderDate || o.createdAt)}</td>
                       <td className="px-4 py-3"><StatusBadge status={o.status} /></td>
-                      <td className="px-4 py-3 text-right">
-                        <button onClick={() => restoreMut.mutate(o.id)} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg text-emerald-700 hover:bg-emerald-50 border border-emerald-200 transition">
-                          <RotateCcw className="w-3 h-3" /> Restore
-                        </button>
+                      <td className="px-3 py-3 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          <button onClick={() => restoreMut.mutate(o.id)} disabled={restoreMut.isPending} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg text-emerald-700 hover:bg-emerald-50 border border-emerald-200 transition disabled:opacity-50">
+                            <RotateCcw className="w-3 h-3" /> Restore
+                          </button>
+                          <button
+                            onClick={() => window.confirm('Remove this order from your personal Trash? It will stay hidden from your account and the business record will be retained.') && purgeMut.mutate(o.id)}
+                            disabled={purgeMut.isPending}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 border border-slate-200 transition disabled:opacity-50"
+                          >
+                            <Trash2 className="w-3 h-3" /> Remove
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

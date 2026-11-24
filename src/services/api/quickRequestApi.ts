@@ -161,6 +161,11 @@ export const quickRequestApi = {
       `/admin/quick-requests/${id}/restore`,
     ),
 
+  adminPurge: (id: string) =>
+    api.post<{ data: string }>(
+      '/admin/quick-requests/' + id + '/permanent',
+    ),
+
   // ── Rep trash ─────────────────────────────────────────────────────────────
 
   repDelete: (id: string) =>
@@ -174,6 +179,11 @@ export const quickRequestApi = {
       {
         params: type ? { type } : undefined,
       },
+    ),
+
+  repPurge: (id: string) =>
+    api.post<{ data: string }>(
+      '/rep/quick-requests/' + id + '/permanent',
     ),
 
   repRestore: (id: string) =>
@@ -217,6 +227,11 @@ export const quickRequestApi = {
       {
         params: type ? { type } : undefined,
       },
+    ),
+
+  coordinatorPurge: (id: string) =>
+    api.post<{ data: string }>(
+      '/coordinator/quick-requests/' + id + '/permanent',
     ),
 
   coordinatorRestore: (id: string) =>

@@ -77,7 +77,7 @@ export default function RepPaymentReports() {
 
   const [evidencePayment, setEvidencePayment] = useState<RepPaymentDto | null>(null);
   const [confirmState, setConfirmState] = useState<{
-    type: 'trash' | 'restore' | 'bulk-trash';
+    type: 'trash' | 'restore' | 'permanent' | 'bulk-trash';
     payment?: RepPaymentDto;
   } | null>(null);
 
@@ -176,6 +176,16 @@ export default function RepPaymentReports() {
       toast.success('Payment report restored');
     },
     onError: () => toast.error('Restore failed'),
+  });
+
+  const purgeMut = useMutation({
+    mutationFn: repPaymentsApi.repPurge,
+    onSuccess: async () => {
+      setConfirmState(null);
+      await invalidateReports();
+      toast.success('Removed from your Trash; payment evidence retained');
+    },
+    onError: () => toast.error('Could not remove payment report from Trash'),
   });
 
   const bulkTrashMut = useMutation({
@@ -332,6 +342,8 @@ export default function RepPaymentReports() {
 
     if (confirmState.type === 'trash') {
       trashMut.mutate(confirmState.payment.id);
+    } else if (confirmState.type === 'permanent') {
+      purgeMut.mutate(confirmState.payment.id);
     } else {
       restoreMut.mutate(confirmState.payment.id);
     }
@@ -899,7 +911,7 @@ export default function RepPaymentReports() {
                       <td className="whitespace-nowrap px-5 py-3 text-right text-xs text-slate-500">
                         {formatDateTime(
                           activeTab === 'trash'
-                            ? payment.salesRepDeletedAt ?? payment.createdAt
+                            ? payment.deletedAt ?? payment.createdAt
                             : payment.createdAt,
                         )}
                       </td>
@@ -931,17 +943,24 @@ export default function RepPaymentReports() {
                               <Trash2 className="h-4 w-4" />
                             </button>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={() => setConfirmState({
-                                type: 'restore',
-                                payment,
-                              })}
-                              title="Restore"
-                              className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50"
-                            >
-                              <RotateCcw className="h-4 w-4" />
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmState({ type: 'restore', payment })}
+                                title="Restore"
+                                className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmState({ type: 'permanent', payment })}
+                                title="Remove from your Trash"
+                                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -955,7 +974,7 @@ export default function RepPaymentReports() {
               {payments.map((payment) => {
                 const selected = selectedIds.has(payment.id);
                 const displayDate = activeTab === 'trash'
-                  ? payment.salesRepDeletedAt ?? payment.createdAt
+                  ? payment.deletedAt ?? payment.createdAt
                   : payment.createdAt;
 
                 return (
@@ -1067,6 +1086,15 @@ export default function RepPaymentReports() {
                           </>
                         )}
                       </button>
+                      {activeTab === 'trash' && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmState({ type: 'permanent', payment })}
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-3 text-xs font-bold text-slate-700"
+                        >
+                          <Trash2 className="h-4 w-4" /> Remove
+                        </button>
+                      )}
                     </div>
                   </article>
                 );
@@ -1130,29 +1158,35 @@ export default function RepPaymentReports() {
 
       <PaymentReportConfirmDialog
         open={!!confirmState}
-        variant={confirmState?.type === 'restore' ? 'restore' : 'trash'}
+        variant={confirmState?.type === 'restore' ? 'restore' : confirmState?.type === 'permanent' ? 'delete' : 'trash'}
         title={
           confirmState?.type === 'restore'
             ? 'Restore payment report?'
-            : confirmState?.type === 'bulk-trash'
-              ? 'Move selected reports to trash?'
-              : 'Move payment report to trash?'
+            : confirmState?.type === 'permanent'
+              ? 'Remove payment report from your Trash?'
+              : confirmState?.type === 'bulk-trash'
+                ? 'Move selected reports to trash?'
+                : 'Move payment report to trash?'
         }
         description={
           confirmState?.type === 'restore'
             ? 'This report will return to your Active list.'
-            : confirmState?.type === 'bulk-trash'
-              ? `${selectedIds.size} selected report(s) will move to your Sales Rep Trash only.`
-              : 'This report will move to your Sales Rep Trash only. Admin and Coordinator visibility will not change.'
+            : confirmState?.type === 'permanent'
+              ? 'This removes the report from your personal Trash only. The payment report and evidence remain stored for audit.'
+              : confirmState?.type === 'bulk-trash'
+                ? `${selectedIds.size} selected report(s) will move to your Sales Rep Trash only.`
+                : 'This report will move to your Sales Rep Trash only. Admin and Coordinator visibility will not change.'
         }
         reportNumber={confirmState?.payment?.reportNumber}
         customerName={confirmState?.payment?.customerName}
         confirmLabel={
           confirmState?.type === 'restore'
             ? 'Restore'
-            : 'Move to Trash'
+            : confirmState?.type === 'permanent'
+              ? 'Remove from Trash'
+              : 'Move to Trash'
         }
-        isPending={trashMut.isPending || restoreMut.isPending || bulkTrashMut.isPending}
+        isPending={trashMut.isPending || restoreMut.isPending || purgeMut.isPending || bulkTrashMut.isPending}
         onClose={() => setConfirmState(null)}
         onConfirm={handleConfirm}
       />

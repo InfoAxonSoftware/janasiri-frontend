@@ -187,13 +187,13 @@ export default function AdminPaymentReports() {
   });
 
   const hardDeleteMut = useMutation({
-    mutationFn: repPaymentsApi.hardDelete,
+    mutationFn: repPaymentsApi.adminPurge,
     onSuccess: async () => {
       setConfirmState(null);
       await invalidateReports();
-      toast.success('Permanently deleted');
+      toast.success('Removed from Admin Trash; evidence retained');
     },
-    onError: () => toast.error('Permanent delete failed'),
+    onError: () => toast.error('Could not remove payment report from Admin Trash'),
   });
 
   const bulkDeleteMut = useMutation({
@@ -830,7 +830,7 @@ export default function AdminPaymentReports() {
                                   type: 'permanent',
                                   payment,
                                 })}
-                                title="Permanently delete"
+                                title="Remove from Admin Trash"
                                 className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -1013,7 +1013,7 @@ export default function AdminPaymentReports() {
           confirmState?.type === 'restore'
             ? 'Restore payment report?'
             : confirmState?.type === 'permanent'
-              ? 'Permanently delete payment report?'
+              ? 'Remove payment report from Admin Trash?'
               : confirmState?.type === 'bulk-trash'
                 ? 'Move selected reports to trash?'
                 : 'Move payment report to trash?'
@@ -1022,7 +1022,7 @@ export default function AdminPaymentReports() {
           confirmState?.type === 'restore'
             ? 'This report will return to your Active list.'
             : confirmState?.type === 'permanent'
-              ? 'This permanently removes the record and evidence file. This action cannot be undone.'
+              ? 'The item disappears from Admin Trash. The payment record and evidence are retained for audit; the removal cannot be undone.'
               : confirmState?.type === 'bulk-trash'
                 ? `${selectedIds.size} selected report(s) will move to the Admin Trash only.`
                 : 'This report will move to the Admin Trash only and remain visible to other roles.'
@@ -1033,7 +1033,7 @@ export default function AdminPaymentReports() {
           confirmState?.type === 'restore'
             ? 'Restore'
             : confirmState?.type === 'permanent'
-              ? 'Delete Permanently'
+              ? 'Remove from Trash'
               : 'Move to Trash'
         }
         isPending={confirmPending}
