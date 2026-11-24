@@ -112,6 +112,10 @@ export const repPaymentsApi = {
     await api.put(`/rep/payment-reports/${id}/restore`);
   },
 
+  repPurge: async (id: string) => {
+    await api.delete(`/rep/payment-reports/${id}/permanent`);
+  },
+
   // ── Admin ────────────────────────────────────────────────────────────────
   getAll: async (params: RepPaymentQueryParams = {}) => {
     const res = await api.get<{ data: PagedResult<RepPaymentDto> }>(
@@ -162,7 +166,7 @@ export const repPaymentsApi = {
     await api.post(`/admin/payment-reports/${id}/restore`);
   },
 
-  hardDelete: async (id: string) => {
+  adminPurge: async (id: string) => {
     await api.delete(`/admin/payment-reports/${id}/permanent`);
   },
 
@@ -214,5 +218,9 @@ export const repPaymentsApi = {
 
   coordinatorRestore: async (id: string) => {
     await api.put(`/coordinator/payment-reports/${id}/restore`);
+  },
+
+  coordinatorPurge: async (id: string) => {
+    await api.delete(`/coordinator/payment-reports/${id}/permanent`);
   },
 };

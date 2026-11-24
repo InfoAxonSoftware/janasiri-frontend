@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { customerGetQuotations, customerConvertQuotation, customerCancelQuotation } from '../../services/api/quotationApi';
+import { customerGetQuotations, customerConvertQuotation, customerCancelQuotation, customerDeleteQuotation, customerGetQuotationsTrash, customerRestoreQuotation, customerPurgeQuotation } from '../../services/api/quotationApi';
 import { customersApi } from '../../services/api/customersApi';
 import { formatCurrency, formatDate, formatDateTime, formatRelative } from '../../utils/formatters';
 import { taxCodeToRate } from '../../utils/calculations';
@@ -11,7 +11,7 @@ import MobileTileList from '../../components/common/MobileTileList';
 import StatusBadge from '../../components/common/StatusBadge';
 import EmptyState from '../../components/common/EmptyState';
 import BottomSheet from '../../components/common/BottomSheet';
-import { FileText, Plus, Loader2, ShoppingCart, ArrowRight, Download, Search, X, ChevronRight, ClipboardList, RefreshCcw, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { FileText, Plus, Loader2, ShoppingCart, ArrowRight, Download, Search, X, ChevronRight, ClipboardList, RefreshCcw, ArrowUpDown, ArrowUp, ArrowDown, Trash2, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { Quotation, QuotationStatus } from '../../types/quotation.types';
 
@@ -29,6 +29,7 @@ export default function CustomerQuotations() {
   const desktop = useIsDesktop();
   
   const [page, setPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<'active' | 'trash'>('active');
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
   const [expandedQuotationId, setExpandedQuotationId] = useState<string | null>(null);
@@ -57,6 +58,13 @@ export default function CustomerQuotations() {
   const { data, isLoading } = useQuery({
     queryKey: ['customer-quotations', page, statusFilter],
     queryFn: () => customerGetQuotations(page, 20, statusFilter || undefined),
+    enabled: activeTab === 'active',
+  });
+
+  const { data: trashData, isLoading: trashLoading } = useQuery({
+    queryKey: ['customer-quotations-trash', page],
+    queryFn: () => customerGetQuotationsTrash(page, 20),
+    enabled: activeTab === 'trash',
   });
 
   const convertMut = useMutation({
@@ -85,6 +93,38 @@ export default function CustomerQuotations() {
       setExpandedQuotationId(null);
     },
     onError: () => toast.error('Failed to cancel quotation'),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => customerDeleteQuotation(id),
+    onSuccess: () => {
+      toast.success('Quotation moved to your Trash');
+      setSelectedQuotation(null);
+      setExpandedQuotationId(null);
+      queryClient.invalidateQueries({ queryKey: ['customer-quotations'] });
+      queryClient.invalidateQueries({ queryKey: ['customer-quotations-trash'] });
+    },
+    onError: () => toast.error('Could not move quotation to Trash'),
+  });
+
+  const restoreMut = useMutation({
+    mutationFn: (id: string) => customerRestoreQuotation(id),
+    onSuccess: () => {
+      toast.success('Quotation restored');
+      queryClient.invalidateQueries({ queryKey: ['customer-quotations'] });
+      queryClient.invalidateQueries({ queryKey: ['customer-quotations-trash'] });
+    },
+    onError: () => toast.error('Could not restore quotation'),
+  });
+
+  const purgeMut = useMutation({
+    mutationFn: (id: string) => customerPurgeQuotation(id),
+    onSuccess: () => {
+      toast.success('Removed from your Trash; record retained');
+      queryClient.invalidateQueries({ queryKey: ['customer-quotations'] });
+      queryClient.invalidateQueries({ queryKey: ['customer-quotations-trash'] });
+    },
+    onError: () => toast.error('Could not remove quotation from Trash'),
   });
 
   const quotations = data?.items || [];
@@ -138,6 +178,12 @@ export default function CustomerQuotations() {
     }
   };
 
+  const handleMoveQuotationToTrash = (q: Quotation) => {
+    if (window.confirm('Move this quotation to your personal Trash? It will remain visible to your Rep and other authorized roles.')) {
+      deleteMut.mutate(q.id);
+    }
+  };
+
   const hasActiveFilters = !!(statusFilter || search);
 
   return (
@@ -161,8 +207,19 @@ export default function CustomerQuotations() {
         </div>
       </div>
 
+      <div className="flex items-center gap-2 px-4 lg:px-0">
+        <button
+          onClick={() => { setActiveTab('active'); setPage(1); setSelectedQuotation(null); setExpandedQuotationId(null); }}
+          className={activeTab === 'active' ? 'px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-semibold text-slate-800 shadow-sm' : 'px-4 py-2 rounded-lg text-sm font-semibold text-slate-500 hover:bg-white'}
+        >Active</button>
+        <button
+          onClick={() => { setActiveTab('trash'); setPage(1); setSelectedQuotation(null); setExpandedQuotationId(null); }}
+          className={activeTab === 'trash' ? 'inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm font-semibold text-rose-600 shadow-sm' : 'inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-slate-500 hover:bg-white'}
+        ><Trash2 className="w-3.5 h-3.5" /> Trash</button>
+      </div>
+
       {/* Filters Bar */}
-      <div className="sticky top-14 md:top-16 z-20 px-4 lg:px-0">
+      <div className={activeTab === 'trash' ? 'hidden' : 'sticky top-14 md:top-16 z-20 px-4 lg:px-0'}>
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm px-4 py-3 space-y-3">
           {/* Search + Clear row */}
           <div className="flex items-center gap-2">
@@ -211,7 +268,7 @@ export default function CustomerQuotations() {
         </div>
       </div>
 
-      <div className="px-4 lg:px-0">
+      <div className={activeTab === 'trash' ? 'hidden' : 'px-4 lg:px-0'}>
         {desktop ? (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             {isLoading ? (
@@ -291,6 +348,13 @@ export default function CustomerQuotations() {
                                     </button>
                                   )}
 
+                                  <button
+                                    onClick={() => handleMoveQuotationToTrash(q)}
+                                    disabled={deleteMut.isPending}
+                                    className="px-4 py-2 bg-white text-slate-600 border border-slate-200 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all inline-flex items-center gap-2"
+                                  >
+                                    <Trash2 className="w-4 h-4" /> Move to Trash
+                                  </button>
                                   {(q.status === 'Submitted' || q.status === 'UnderReview') && (
                                     <button
                                       onClick={() => handleCancelQuotation(q)}
@@ -474,6 +538,13 @@ export default function CustomerQuotations() {
                 )}
                 
                 <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleMoveQuotationToTrash(q); }}
+                    disabled={deleteMut.isPending}
+                    className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition shadow-sm inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Trash
+                  </button>
                   {(q.status === 'Submitted' || q.status === 'UnderReview') && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleCancelQuotation(q); }}
@@ -502,6 +573,63 @@ export default function CustomerQuotations() {
           />
         )}
       </div>
+
+      {activeTab === 'trash' && (
+        <div className="px-4 lg:px-0">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">My deleted quotations</p>
+                <p className="text-xs text-slate-500 mt-0.5">Only your view is affected. Trash entries expire after 7 days; business records are retained.</p>
+              </div>
+            </div>
+            {trashLoading ? (
+              <div className="p-10 text-center text-slate-400 text-sm">Loading Trash…</div>
+            ) : (trashData?.items || []).length === 0 ? (
+              <div className="p-12 text-center text-sm text-slate-400">Your Trash is empty</div>
+            ) : (
+              <>
+                <div className="divide-y divide-slate-100">
+                  {(trashData?.items || []).map((q: Quotation) => (
+                    <div key={q.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800">{q.quotationNumber}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{formatDateTime(q.createdAt)} · {q.status}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{formatCurrency(q.totalAmount)}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => restoreMut.mutate(q.id)}
+                          disabled={restoreMut.isPending}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-orange-50 text-orange-700 border border-orange-100 text-xs font-semibold hover:bg-orange-100 disabled:opacity-50"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" /> Restore
+                        </button>
+                        <button
+                          onClick={() => window.confirm('Remove this quotation from your personal Trash? It will stay hidden from your account and the business record will be retained.') && purgeMut.mutate(q.id)}
+                          disabled={purgeMut.isPending}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 text-xs font-semibold hover:bg-slate-200 disabled:opacity-50"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {(trashData?.totalPages || 0) > 1 && (
+                  <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-xs text-slate-500">{trashData?.totalCount} total · page {trashData?.page} of {trashData?.totalPages}</span>
+                    <div className="flex gap-2">
+                      <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs disabled:opacity-40">Prev</button>
+                      <button onClick={() => setPage(p => Math.min(trashData?.totalPages || 1, p + 1))} disabled={page >= (trashData?.totalPages || 1)} className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs disabled:opacity-40">Next</button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Mobile Bottom Sheet — Quotation Detail */}
       <BottomSheet open={!!selectedQuotation && !desktop} onClose={() => setSelectedQuotation(null)} title={selectedQuotation?.quotationNumber || 'Quotation Details'}>

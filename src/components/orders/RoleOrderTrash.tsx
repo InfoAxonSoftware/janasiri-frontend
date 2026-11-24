@@ -197,11 +197,9 @@ export default function RoleOrderTrash({ role }: { role: Role }) {
       setSelected(new Set());
       moveBackOnePageWhenEmpty(removed.length);
       await refreshTrash();
-      toast.success(
-        `${removed.length} item${
-          removed.length === 1 ? '' : 's'
-        } permanently removed from your view`,
-      );
+      toast.success(role === 'admin'
+        ? String(removed.length) + ' item' + (removed.length === 1 ? '' : 's') + ' removed from Admin Trash; audit records retained'
+        : String(removed.length) + ' item' + (removed.length === 1 ? '' : 's') + ' permanently removed from your view');
     },
     onError: () => toast.error('Permanent delete failed'),
   });
@@ -369,8 +367,9 @@ export default function RoleOrderTrash({ role }: { role: Role }) {
 
         <div className="mt-3 flex items-start justify-between gap-3">
           <p className="text-[11px] leading-4 text-slate-500 sm:text-xs">
-            Items remain here until restored or permanently removed
-            from your view.
+            {role === 'admin'
+              ? 'Admin-deleted records remain hidden from all users. Removing them from this Trash keeps the business and audit records.'
+              : 'Items remain in your personal Trash for up to 7 days. Removing them only hides them from your view; business records are retained.'}
           </p>
 
           {isFetching && !isLoading && (
@@ -448,8 +447,9 @@ export default function RoleOrderTrash({ role }: { role: Role }) {
             Trash is empty
           </p>
           <p className="mx-auto mt-1 max-w-sm text-xs leading-5 text-slate-400">
-            Items remain here until restored or permanently removed
-            from your view.
+            {role === 'admin'
+              ? 'Admin-deleted records remain hidden from all users. Removing them from this Trash keeps the business and audit records.'
+              : 'Items remain in your personal Trash for up to 7 days. Removing them only hides them from your view; business records are retained.'}
           </p>
         </div>
       ) : (
@@ -637,7 +637,7 @@ export default function RoleOrderTrash({ role }: { role: Role }) {
                       className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-rose-200 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                      Permanently Delete
+                      {role === 'admin' ? 'Remove from Admin Trash' : 'Permanently Delete'}
                     </button>
                   </div>
                 </article>
@@ -657,6 +657,7 @@ export default function RoleOrderTrash({ role }: { role: Role }) {
       {confirmAction &&
         createPortal(
           <TrashConfirmModal
+            role={role}
             action={confirmAction}
             pending={
               purgeMutation.isPending || emptyMutation.isPending
@@ -680,11 +681,13 @@ export default function RoleOrderTrash({ role }: { role: Role }) {
 }
 
 function TrashConfirmModal({
+  role,
   action,
   pending,
   onCancel,
   onConfirm,
 }: {
+  role: Role;
   action: ConfirmAction;
   pending: boolean;
   onCancel: () => void;
@@ -723,15 +726,15 @@ function TrashConfirmModal({
                   id="trash-confirm-title"
                   className="text-base font-bold text-slate-900"
                 >
-                  {isEmptyTrash
-                    ? 'Empty Trash?'
-                    : 'Permanently remove?'}
+                  {role === 'admin'
+                    ? (isEmptyTrash ? 'Clear Admin Trash?' : 'Remove from Admin Trash?')
+                    : (isEmptyTrash ? 'Empty your Trash?' : 'Remove from your Trash?')}
                 </h2>
 
                 <p className="mt-1 text-sm leading-5 text-slate-500">
-                  {isEmptyTrash
-                    ? `This will permanently remove ${itemLabel} from your view.`
-                    : `This will permanently remove ${itemLabel} from your view.`}
+                  {role === 'admin'
+                    ? 'This removes ' + itemLabel + ' from Admin Trash. The records remain hidden from all users and are retained for audit.'
+                    : 'This removes ' + itemLabel + ' from your personal Trash. They remain hidden from your account; other roles are not affected.'}
                 </p>
               </div>
 
@@ -748,9 +751,9 @@ function TrashConfirmModal({
 
             <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50 px-3 py-3">
               <p className="text-xs font-semibold leading-5 text-amber-800">
-                Other authorized roles will not be affected.
-                This action only removes these records from your
-                current role view.
+                {role === 'admin'
+                  ? 'No database rows or attachments are physically deleted by this action.'
+                  : 'This action changes only your personal Trash visibility.'}
               </p>
             </div>
 
@@ -777,7 +780,7 @@ function TrashConfirmModal({
                     : 'Removing…'
                   : isEmptyTrash
                     ? 'Empty Trash'
-                    : 'Remove'}
+                    : (role === 'admin' ? 'Remove from Trash' : 'Remove')}
               </button>
             </div>
           </div>

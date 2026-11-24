@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { useState, useEffect, useMemo, Fragment, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { PrivateImage } from '../../components/common/PrivateImage';
@@ -1948,7 +1948,7 @@ export default function AdminOrders() {
               <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                 <Trash2 className="w-10 h-10 mb-3 opacity-20" />
                 <p className="text-sm font-medium">Trash is empty</p>
-                <p className="text-xs mt-1 text-slate-300">Items remain here until restored or permanently removed from your view.</p>
+                <p className="text-xs mt-1 text-slate-300">Admin-deleted records remain hidden from all users. Removing them from Admin Trash retains the business and audit records.</p>
               </div>
             );
             return (<>
@@ -2390,7 +2390,7 @@ export default function AdminOrders() {
               <div className="flex-1 min-w-0">
                 <h3 className="text-base font-semibold text-slate-900">Move to Trash</h3>
                 <p className="mt-1 text-sm text-slate-500">
-                  Move <span className="font-semibold text-slate-700">{selectedIds.size} order{selectedIds.size !== 1 ? 's' : ''}</span> to your Admin trash only?
+                  Move <span className="font-semibold text-slate-700">{selectedIds.size} order{selectedIds.size !== 1 ? 's' : ''}</span> to Admin Trash? They will be hidden from all users.
                 </p>
               </div>
             </div>
@@ -2418,7 +2418,7 @@ function DeleteOrderModal({ orderNumber, isPending, onClose, onConfirm }: { orde
           <div className="flex-1 min-w-0">
             <h3 className="text-base font-semibold text-slate-900">Move to Trash</h3>
             <p className="mt-1 text-sm text-slate-500">
-              Move order <span className="font-semibold text-slate-700">{orderNumber}</span> to your Admin trash only?
+              Move order <span className="font-semibold text-slate-700">{orderNumber}</span> to Admin Trash? It will be hidden from all users.
             </p>
           </div>
         </div>

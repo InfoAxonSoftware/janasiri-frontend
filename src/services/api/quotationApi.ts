@@ -116,6 +116,11 @@ export const adminGetQuotationsTrash = async (page = 1, pageSize = 20) => {
   return data.data;
 };
 
+export const adminPurgeQuotation = async (id: string) => {
+  const { data } = await api.post<ApiResponse<string>>('/admin/quotations/' + id + '/permanent', {});
+  return data.data;
+};
+
 export const adminRestoreQuotation = async (id: string) => {
   const { data } = await api.post<ApiResponse<string>>(`/admin/quotations/${id}/restore`, {});
   return data.data;
@@ -131,6 +136,11 @@ export const repDeleteQuotation = async (id: string) => {
 export const repGetQuotationsTrash = async (page = 1, pageSize = 20) => {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   const { data } = await api.get<ApiResponse<PagedResult<Quotation>>>(`/rep/quotations/trash?${params}`);
+  return data.data;
+};
+
+export const repPurgeQuotation = async (id: string) => {
+  const { data } = await api.post<ApiResponse<string>>('/rep/quotations/' + id + '/permanent', {});
   return data.data;
 };
 
@@ -152,6 +162,11 @@ export const coordinatorGetQuotationsTrash = async (page = 1, pageSize = 20) => 
   return data.data;
 };
 
+export const coordinatorPurgeQuotation = async (id: string) => {
+  const { data } = await api.post<ApiResponse<string>>('/coordinator/quotations/' + id + '/permanent', {});
+  return data.data;
+};
+
 export const coordinatorRestoreQuotation = async (id: string) => {
   const { data } = await api.post<ApiResponse<string>>(`/coordinator/quotations/${id}/restore`, {});
   return data.data;
@@ -167,6 +182,11 @@ export const customerDeleteQuotation = async (id: string) => {
 export const customerGetQuotationsTrash = async (page = 1, pageSize = 20) => {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   const { data } = await api.get<ApiResponse<PagedResult<Quotation>>>(`/customer/quotations/trash?${params}`);
+  return data.data;
+};
+
+export const customerPurgeQuotation = async (id: string) => {
+  const { data } = await api.post<ApiResponse<string>>('/customer/quotations/' + id + '/permanent', {});
   return data.data;
 };
 
