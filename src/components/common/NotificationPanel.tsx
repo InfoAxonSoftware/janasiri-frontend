@@ -1,3 +1,4 @@
+import { DeleteNotificationButton, ClearNotificationActions } from './NotificationDeleteActions';
 import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, CheckCheck, ChevronRight } from 'lucide-react';
@@ -131,18 +132,20 @@ export default function NotificationPanel({ open, onClose, userId, accent = 'ind
           <Bell className="w-4 h-4 text-slate-600" />
           <p className="text-xs font-semibold text-slate-700">Notifications</p>
         </div>
+      </div>
+
+      <div className="flex flex-nowrap items-center justify-between gap-1 border-b border-slate-100 px-2 py-1">
         <button
+          type="button"
           onClick={() => markAllReadMut.mutate()}
           disabled={markAllReadMut.isPending || !items.some((n) => !n.isRead)}
           aria-label="Mark all notifications as read"
-          className={`text-[11px] font-medium disabled:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500 rounded ${styles.actionText}`}
+          className={'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-2 text-[11px] font-medium hover:bg-slate-100 disabled:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ' + styles.actionText}
         >
-          <span className="inline-flex items-center gap-1">
-            <CheckCheck className="w-3.5 h-3.5" /> Mark all read
-          </span>
+          <CheckCheck className="h-3.5 w-3.5" /> Mark all read
         </button>
+        <ClearNotificationActions userId={userId} disabled={!data?.totalCount} compact />
       </div>
-
       <div ref={listRef} className="max-h-[420px] min-h-0 overflow-y-auto" aria-live="polite">
         {isLoading ? (
           <div className="px-3 py-4 text-[11px] text-slate-400">Loading notifications...</div>
@@ -151,14 +154,14 @@ export default function NotificationPanel({ open, onClose, userId, accent = 'ind
         ) : (
           <ul className="divide-y divide-slate-100">
             {items.map((n) => (
-              <li key={n.id} className={n.isRead ? 'bg-white' : styles.unreadBg}>
+              <li key={n.id} className={(n.isRead ? 'bg-white' : styles.unreadBg) + ' flex items-start pr-2'}>
                 <button
                   type="button"
                   onClick={() => {
                     if (!n.isRead) markReadMut.mutate(n.id);
                   }}
                   aria-label={`${n.isRead ? 'Read' : 'Unread'} notification: ${n.title}`}
-                  className="w-full text-left px-3 py-2.5 hover:bg-slate-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"
+                  className="min-w-0 flex-1 text-left px-3 py-2.5 hover:bg-slate-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"
                 >
                 <div className="flex items-start gap-2">
                   <span className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${n.isRead ? 'bg-slate-300' : styles.dot}`} />
@@ -169,6 +172,7 @@ export default function NotificationPanel({ open, onClose, userId, accent = 'ind
                   </div>
                 </div>
                 </button>
+              <DeleteNotificationButton userId={userId} id={n.id} />
               </li>
             ))}
           </ul>

@@ -1,3 +1,4 @@
+import { DeleteNotificationButton, ClearNotificationActions } from '../../components/common/NotificationDeleteActions';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationQueryKeys, notificationsApi, type NotificationRecipient } from '../../services/api/notificationsApi';
 import { formatRelative } from '../../utils/formatters';
@@ -173,6 +174,7 @@ export default function AdminNotifications() {
         </div>
       </div>
 
+      <div className="flex justify-end"><ClearNotificationActions userId={userId} disabled={!data?.totalCount} onDeleted={() => setPage(1)} /></div>
       <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
         {isLoading ? (
           <div className="p-8 text-center text-slate-500">
@@ -231,6 +233,7 @@ export default function AdminNotifications() {
                   Mark read
                 </button>
               )}
+              <DeleteNotificationButton userId={userId} id={n.id} onDeleted={() => { if (notifications.length === 1 && page > 1) setPage(page - 1); }} />
             </div>
           ))
         )}
