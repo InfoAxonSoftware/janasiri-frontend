@@ -41,6 +41,11 @@ export const notificationsApi = {
   markAllAsRead: () =>
     api.put<ApiResponse<string>>('/notifications/read-all'),
 
+  deleteOne: (id: string) =>
+    api.delete<ApiResponse<string>>('/notifications/' + encodeURIComponent(id)),
+  clear: (readOnly: boolean) =>
+    api.delete<ApiResponse<number>>('/notifications', { params: { readOnly } }),
+
   getUnreadCount: () =>
     api.get<ApiResponse<number>>('/notifications/unread-count'),
 
