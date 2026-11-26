@@ -18,6 +18,8 @@ import ProtectedRoute from './routes/ProtectedRoute';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import CustomerRegistration from './pages/auth/CustomerRegistration';
+import QuickOrder from './pages/auth/QuickOrder';
+import TrackGuestOrder from './pages/auth/TrackGuestOrder';
 import ForceChangePassword from './pages/auth/ForceChangePassword';
 
 // Admin pages
@@ -152,6 +154,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/customer-register" element={<CustomerRegistration />} />
+        <Route path="/quick-order" element={<QuickOrder />} />
+        <Route path="/track-order" element={<TrackGuestOrder />} />
         <Route path="/change-password" element={<ProtectedRoute><ForceChangePassword /></ProtectedRoute>} />
         <Route path="/unauthorized" element={<Unauthorized />} />
 

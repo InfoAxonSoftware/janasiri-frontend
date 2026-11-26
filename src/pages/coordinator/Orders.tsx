@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { createPortal } from 'react-dom';
 import { PrivateImage } from '../../components/common/PrivateImage';
 import { Fragment, useMemo, useState } from 'react';
@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Search, X, Trash2, RotateCcw, ChevronRight, ShoppingCart,
-  Download, FileSpreadsheet, RefreshCw, Check, SlidersHorizontal,
+  Download, FileSpreadsheet, FileText, RefreshCw, Check, SlidersHorizontal,
   ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { ordersApi } from '../../services/api/ordersApi';
@@ -22,8 +22,53 @@ import MobileTileList from '../../components/common/MobileTileList';
 import StatusBadge from '../../components/common/StatusBadge';
 import { downloadQuickRequestPdf, downloadQuickRequestExcel } from '../../utils/quickRequestPdf';
 import RoleOrderTrash from '../../components/orders/RoleOrderTrash';
+import GuestQuickOrderDetails, { parseGuestQuickOrderDetails } from '../../components/orders/GuestQuickOrderDetails';
+import { openPrivateFile, downloadPrivateFile } from '../../utils/fileAccess';
 
 const BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || '';
+
+const isPdfQuickAttachment = (attachment: any) =>
+  attachment?.contentType?.toLowerCase() === 'application/pdf' ||
+  attachment?.originalFileName?.toLowerCase().endsWith('.pdf');
+
+const getQuickAttachments = (request: any): any[] => {
+  if (Array.isArray(request?.attachments) && request.attachments.length > 0) {
+    return request.attachments;
+  }
+
+  return (request?.imageUrls || []).map((url: string, index: number) => ({
+    id: 'legacy-' + request.id + '-' + index,
+    url,
+    originalFileName: 'Photo ' + (index + 1),
+    contentType: 'image/*',
+    sizeBytes: 0,
+  }));
+};
+
+function CoordinatorQuickPdfAttachmentCard({ attachment }: { attachment: any }) {
+  return (
+    <div className="group relative flex h-24 w-36 shrink-0 flex-col justify-between overflow-hidden rounded-xl border border-red-200 bg-red-50 p-2.5">
+      <div className="flex min-w-0 items-center gap-2">
+        <FileText className="h-5 w-5 shrink-0 text-red-600" />
+        <span className="truncate text-xs font-semibold text-slate-700">{attachment.originalFileName || 'PDF document'}</span>
+      </div>
+      <div className="flex gap-1.5">
+        <button type="button" onClick={async (event) => {
+          event.stopPropagation();
+          try { await openPrivateFile(attachment.url); } catch { toast.error('Unable to open PDF'); }
+        }} className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-lg bg-white text-xs font-semibold text-red-700 shadow-sm hover:bg-red-100">
+          <FileText size={13} /> Open
+        </button>
+        <button type="button" onClick={async (event) => {
+          event.stopPropagation();
+          try { await downloadPrivateFile(attachment.url, attachment.originalFileName || 'guest-order.pdf'); } catch { toast.error('Download failed'); }
+        }} className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-lg bg-white text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-100">
+          <Download size={13} /> Save
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function CoordinatorOrders() {
   const [page, setPage] = useState(1);
@@ -166,9 +211,9 @@ export default function CoordinatorOrders() {
     const rows = (quickData as any[]).map(r => ({
       _isQuick: true, _quick: r,
       id: r.id, orderNumber: r.requestNumber,
-      customerName: r.customerName, repName: r.repName,
+      customerName: r.customerName, repName: r.createdBy === 'Quick Order Portal' ? 'Guest' : r.repName,
       orderDate: r.createdAt, status: r.status,
-      items: [], totalAmount: 0,
+      items: r.createdBy === 'Quick Order Portal' ? parseGuestQuickOrderDetails(r.details || '').items : [], totalAmount: 0,
     }));
     return status ? rows.filter(r => r.status === status) : rows;
   }, [quickData, status]);
@@ -404,7 +449,7 @@ export default function CoordinatorOrders() {
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1.5">
                               <span className="font-medium text-slate-800">{o.displayNumber}</span>
-                              {o._isQuick && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">Quick</span>}
+                              {o._isQuick && (o.createdBy === 'Quick Order Portal' ? <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">Guest</span> : <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">Quick</span>)}
                             </div>
                           </td>
                           <td className="px-4 py-3 text-slate-600">{o.customerName}</td>
@@ -480,12 +525,16 @@ export default function CoordinatorOrders() {
                               <td className="px-4 py-3 border-r border-slate-100 whitespace-nowrap">
                                 <div className="flex flex-col gap-0.5">
                                   <span className="font-bold text-slate-900">{qr.requestNumber}</span>
-                                  <span className="inline-flex w-fit px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-violet-100 text-violet-700">Quick Order</span>
+                                  {qr.createdBy === 'Quick Order Portal' ? (
+                                    <span className="inline-flex w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">Guest</span>
+                                  ) : (
+                                    <span className="inline-flex w-fit px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-violet-100 text-violet-700">Quick Order</span>
+                                  )}
                                 </div>
                               </td>
                               <td className="px-4 py-3 border-r border-slate-100"><span className="text-slate-700 truncate block">{qr.customerName}</span></td>
-                              <td className="px-4 py-3 border-r border-slate-100"><span className="text-slate-500">{qr.repName || '—'}</span></td>
-                              <td className="px-3 py-3 text-center border-r border-slate-100"><span className="text-slate-400">—</span></td>
+                              <td className="px-4 py-3 border-r border-slate-100"><span className="text-slate-500">{qr.createdBy === 'Quick Order Portal' ? 'Guest' : (qr.repName || '—')}</span></td>
+                              <td className="px-3 py-3 text-center border-r border-slate-100"><span className="inline-flex min-w-7 items-center justify-center rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold tabular-nums text-slate-600">{qr.createdBy === 'Quick Order Portal' ? parseGuestQuickOrderDetails(qr.details || '').items.length : '—'}</span></td>
                               <td className="px-4 py-3 text-right border-r border-slate-100"><span className="text-slate-400">—</span></td>
                               <td className="px-4 py-3 text-right border-r border-slate-100 whitespace-nowrap"><span className="text-slate-500">{formatDateTime(qr.createdAt)}</span></td>
                               <td className="px-4 py-3 text-center"><StatusBadge status={qr.status} /></td>
@@ -498,7 +547,7 @@ export default function CoordinatorOrders() {
                                       <div className="flex-1 space-y-3">
                                         <div>
                                           <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Order Details</p>
-                                          <pre className="text-sm text-slate-800 whitespace-pre-wrap font-sans bg-white border border-slate-100 rounded-xl p-3">{qr.details}</pre>
+                                          <GuestQuickOrderDetails request={qr} />
                                         </div>
                                         {qr.adminNotes && (
                                           <div>
@@ -506,13 +555,27 @@ export default function CoordinatorOrders() {
                                             <p className="text-sm text-slate-700 bg-amber-50 border border-amber-100 rounded-xl p-3">{qr.adminNotes}</p>
                                           </div>
                                         )}
-                                        {qr.imageUrls?.length > 0 && (
+                                        {getQuickAttachments(qr).length > 0 && (
                                           <div>
-                                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">Photos ({qr.imageUrls.length})</p>
-                                            <div className="flex flex-wrap gap-2">
-                                              {qr.imageUrls.map((url: string, i: number) => (
-                                                <PrivateImage key={i} apiPath={url} alt={`Photo ${i + 1}`} className="w-20 h-20 rounded-xl object-cover border border-slate-200" />
-                                              ))}
+                                            <p className="text-sm font-semibold text-slate-700 mb-2">Attachments ({getQuickAttachments(qr).length})</p>
+                                            <div className="flex flex-wrap gap-2.5">
+                                              {getQuickAttachments(qr).map((attachment: any, index: number) => {
+                                                if (isPdfQuickAttachment(attachment)) {
+                                                  return <CoordinatorQuickPdfAttachmentCard key={attachment.id || index} attachment={attachment} />;
+                                                }
+
+                                                return (
+                                                  <div key={attachment.id || index} className="group relative h-24 w-24 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                                                    <PrivateImage apiPath={attachment.url} alt={attachment.originalFileName || ('Photo ' + (index + 1))} className="h-full w-full object-cover" />
+                                                    <button type="button" onClick={async (event) => {
+                                                      event.stopPropagation();
+                                                      try { await downloadPrivateFile(attachment.url, attachment.originalFileName || ('guest-order-photo-' + (index + 1))); } catch { toast.error('Photo download failed'); }
+                                                    }} className="absolute bottom-1 right-1 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/95 text-slate-700 opacity-0 shadow-sm transition group-hover:opacity-100" aria-label="Download attachment">
+                                                      <Download size={14} />
+                                                    </button>
+                                                  </div>
+                                                );
+                                              })}
                                             </div>
                                           </div>
                                         )}
@@ -688,7 +751,7 @@ export default function CoordinatorOrders() {
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-slate-900 truncate">{row.orderNumber}</p>
-                      {row._isQuick && <span className="inline-flex w-fit px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-100 text-violet-700">Quick Order</span>}
+                      {row._isQuick && (row._quick?.createdBy === 'Quick Order Portal' ? <span className="inline-flex w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">Guest</span> : <span className="inline-flex w-fit px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-100 text-violet-700">Quick Order</span>)}
                       <p className="text-sm text-slate-500 truncate">{row.customerName}</p>
                     </div>
                     <StatusBadge status={row.status} />

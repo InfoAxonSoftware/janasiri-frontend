@@ -34,6 +34,29 @@ export interface QuickRequestDto {
   deletedAt?: string | null;
 }
 
+export interface GuestQuickOrderTrackingAttachmentDto {
+  id: string;
+  originalFileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+}
+
+export interface GuestQuickOrderTrackingDto {
+  requestNumber: string;
+  businessName: string;
+  contactPerson: string;
+  contactNumberMasked: string;
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Completed';
+  createdAt: string;
+  items: Array<{
+    description: string;
+    size?: string | null;
+    brand?: string | null;
+    quantity: number;
+  }>;
+  attachments: GuestQuickOrderTrackingAttachmentDto[];
+}
 export interface CreateQuickRequestDto {
   type: 'Order' | 'Quotation';
   customerName: string;
@@ -54,6 +77,33 @@ export const quickRequestApi = {
       dto,
     ),
 
+  // Public customer portal submission.
+  submitGuest: (form: FormData) =>
+    api.post<{ data: QuickRequestDto }>(
+      '/public/quick-orders',
+      form,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      },
+    ),
+  trackGuestOrder: (dto: { requestNumber: string; phoneNumber: string }) =>
+    api.post<{ data: GuestQuickOrderTrackingDto }>(
+      '/public/quick-orders/track',
+      dto,
+    ),
+
+  downloadGuestAttachment: (
+    requestNumber: string,
+    attachmentId: string,
+    phoneNumber: string,
+  ) =>
+    api.post<Blob>(
+      '/public/quick-orders/' + encodeURIComponent(requestNumber) + '/attachments/' + attachmentId,
+      { phoneNumber },
+      { responseType: 'blob' },
+    ),
   // Upload images and/or PDF attachments.
   // Backend keeps the existing endpoint for backward compatibility.
   uploadImages: (id: string, files: File[]) => {

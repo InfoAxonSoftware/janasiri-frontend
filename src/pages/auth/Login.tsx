@@ -11,6 +11,7 @@ import {
   MapPin,
   Phone,
   ShieldCheck,
+  ShoppingBag,
   UserRound,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -84,20 +85,13 @@ export default function Login() {
                 <img src="/logo.png" alt="Janasiri Distributors logo" className="h-full w-full object-contain" />
               </div>
               <div>
-                <p className="text-[17px] font-extrabold leading-tight tracking-[0.11em] text-white">JANASIRI</p>
-                <p className="mt-1 text-[9px] font-semibold tracking-[0.22em] text-[#d6a18e]">DISTRIBUTORS (PVT) LTD</p>
+                <p className="text-[18px] font-bold leading-tight tracking-[-0.02em] text-white">Janasiri</p>
+                <p className="mt-0.5 text-[13px] font-semibold tracking-[0.08em] text-[#d6a18e]">Distributors</p>
               </div>
             </div>
-            <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[9px] font-semibold tracking-[0.16em] text-white/65">
-              SRI LANKA
-            </span>
           </header>
 
           <div className="relative z-10 my-auto w-full max-w-[680px] py-6">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#d77c60]/30 bg-[#d77c60]/10 px-3 py-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#e28a6d] shadow-[0_0_12px_rgba(226,138,109,0.9)]" />
-              <span className="text-[9px] font-bold uppercase tracking-[0.19em] text-[#f0b39f]">Trusted food service partner · Sri Lanka</span>
-            </div>
 
             <h1 className="max-w-[620px] text-[clamp(2.35rem,3.35vw,3.65rem)] font-semibold leading-[1.04] tracking-[-0.055em] text-[#fbf8f1]">
               Sri Lanka&apos;s trusted <span className="font-serif italic font-normal text-[#df9278]">food service partner.</span>
@@ -108,8 +102,7 @@ export default function Login() {
 
             <div className="mt-7">
               <div className="mb-3 flex items-center justify-between gap-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.19em] text-[#d99a84]">Our locations & contact details</p>
-                <span className="text-[9px] font-medium tracking-wide text-white/35">JANASIRI DISTRIBUTORS</span>
+                <p className="text-[13px] font-bold tracking-[0.02em] text-[#e2a18b]">Our locations & contact details</p>
               </div>
               <div className="grid grid-cols-2 gap-2.5">
                 {companyLocations.map((location) => (
@@ -124,7 +117,7 @@ export default function Login() {
             </div>
           </div>
 
-          <footer className="relative z-10 flex shrink-0 items-center justify-between gap-4 border-t border-white/10 pt-4 text-[10px] text-white/45">
+          <footer className="relative z-10 flex shrink-0 items-center justify-between gap-4 border-t border-white/10 pt-4 text-[12px] text-white/75">
             <p>© {new Date().getFullYear()} Janasiri Distributors (Pvt) Ltd. All rights reserved.</p>
             <a href="https://janasiri.com" target="_blank" rel="noreferrer" className="shrink-0 font-semibold tracking-[0.12em] transition hover:text-white">
               WWW.JANASIRI.COM
@@ -142,20 +135,16 @@ export default function Login() {
                 <img src="/logo.png" alt="Janasiri Distributors logo" className="h-full w-full object-contain" />
               </div>
               <div>
-                <p className="text-[16px] font-extrabold tracking-[0.12em] text-[#252b24]">JANASIRI</p>
-                <p className="mt-0.5 text-[9px] font-bold tracking-[0.22em] text-[#a85a43]">DISTRIBUTORS (PVT) LTD</p>
+                <p className="text-[17px] font-bold tracking-[-0.02em] text-[#252b24]">Janasiri</p>
+                <p className="mt-0.5 text-[13px] font-semibold tracking-[0.08em] text-[#647454]">Distributors</p>
               </div>
             </div>
 
             <div className="mb-6">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#dce4d7] bg-[#edf1e9] px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-[#647454]">
-                <ShieldCheck size={13} strokeWidth={2} />
-                Secure wholesale portal
-              </div>
               <h2 className="text-[2.45rem] font-semibold leading-[1.06] tracking-[-0.055em] text-[#242923] sm:text-[2.7rem]">
                 Welcome <span className="font-serif italic font-normal text-[#b9573d]">back.</span>
               </h2>
-              <p className="mt-2.5 max-w-[360px] text-[13px] leading-5 text-[#777c72]">
+              <p className="mt-2.5 max-w-[360px] text-[14px] leading-6 text-[#62695e]">
                 Sign in to your wholesale management portal.
               </p>
             </div>
@@ -169,7 +158,7 @@ export default function Login() {
 
             <form onSubmit={handleSubmit} className="min-w-0 space-y-4">
               <div>
-                <label htmlFor="username" className="mb-1.5 block text-[12px] font-bold tracking-[0.03em] text-[#454b43]">
+                <label htmlFor="username" className="mb-1.5 block text-[13px] font-semibold tracking-[0.005em] text-[#3d4639]">
                   Username
                 </label>
                 <div className="group relative">
@@ -180,18 +169,18 @@ export default function Login() {
                     type="text"
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
-                    placeholder="Ex: jdist_coordinator"
+                    placeholder="Enter your username"
                     autoComplete="username"
                     autoCapitalize="none"
                     spellCheck={false}
                     required
-                    className="h-[52px] w-full min-w-0 rounded-xl border border-[#e4e3dc] bg-white/90 pl-11 pr-4 text-[13px] text-[#252a24] shadow-[0_2px_8px_rgba(37,42,36,0.025)] outline-none transition duration-200 placeholder:text-[#a6a99f] hover:border-[#d3d1c8] focus:border-[#bd674d] focus:bg-white focus:ring-4 focus:ring-[#bd674d]/[0.09]"
+                    className="h-[52px] w-full min-w-0 rounded-xl border border-[#e4e3dc] bg-white/90 pl-11 pr-4 text-[15px] text-[#252a24] shadow-[0_2px_8px_rgba(37,42,36,0.025)] outline-none transition duration-200 placeholder:text-[14px] placeholder:text-[#858a80] hover:border-[#d3d1c8] focus:border-[#bd674d] focus:bg-white focus:ring-4 focus:ring-[#bd674d]/[0.09]"
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="password" className="mb-1.5 block text-[12px] font-bold tracking-[0.03em] text-[#454b43]">
+                <label htmlFor="password" className="mb-1.5 block text-[13px] font-semibold tracking-[0.005em] text-[#3d4639]">
                   Password
                 </label>
                 <div className="group relative">
@@ -205,7 +194,7 @@ export default function Login() {
                     placeholder="••••••••"
                     autoComplete="current-password"
                     required
-                    className="h-[52px] w-full min-w-0 rounded-xl border border-[#e4e3dc] bg-white/90 pl-11 pr-12 text-[13px] text-[#252a24] shadow-[0_2px_8px_rgba(37,42,36,0.025)] outline-none transition duration-200 placeholder:text-[#a6a99f] hover:border-[#d3d1c8] focus:border-[#bd674d] focus:bg-white focus:ring-4 focus:ring-[#bd674d]/[0.09]"
+                    className="h-[52px] w-full min-w-0 rounded-xl border border-[#e4e3dc] bg-white/90 pl-11 pr-12 text-[15px] text-[#252a24] shadow-[0_2px_8px_rgba(37,42,36,0.025)] outline-none transition duration-200 placeholder:text-[14px] placeholder:text-[#858a80] hover:border-[#d3d1c8] focus:border-[#bd674d] focus:bg-white focus:ring-4 focus:ring-[#bd674d]/[0.09]"
                   />
                   <button
                     type="button"
@@ -222,7 +211,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="group mt-1 flex h-[54px] w-full items-center justify-center gap-3 rounded-xl bg-[#b9573d] px-6 text-[13px] font-bold text-white shadow-[0_10px_22px_rgba(185,87,61,0.19)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#a94c34] hover:shadow-[0_14px_26px_rgba(185,87,61,0.24)] active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0"
+                className="group mt-1 flex h-[54px] w-full items-center justify-center gap-3 rounded-xl bg-[#b9573d] px-6 text-[15px] font-semibold text-white shadow-[0_10px_22px_rgba(185,87,61,0.19)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#a94c34] hover:shadow-[0_14px_26px_rgba(185,87,61,0.24)] active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0"
               >
                 {isLoading ? (
                   <>
@@ -239,36 +228,26 @@ export default function Login() {
             </form>
 
             <div className="mt-6 border-t border-[#e6e3da] pt-5 text-center">
-              <p className="text-[12px] text-[#777c72]">
+              <p className="text-[14px] text-[#62695e]">
                 New customer?{' '}
                 <Link to="/customer-register" className="font-bold text-[#ae5139] decoration-[#ae5139]/40 underline-offset-4 transition hover:text-[#883c2a] hover:underline">
                   Apply for an account
                 </Link>
               </p>
+              <Link to="/quick-order" className="group mt-4 flex items-center justify-between gap-3 rounded-xl border border-[#dfe4da] bg-[#f4f6f0] px-4 py-3 text-left transition duration-200 hover:-translate-y-0.5 hover:border-[#c8d3bf] hover:bg-[#edf1e9]">
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#647454] shadow-sm"><ShoppingBag size={16} strokeWidth={1.8} /></span>
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-medium text-[#62695e]">No account needed</span>
+                    <span className="mt-0.5 block text-[14px] font-semibold text-[#30382d]">Place an order as a guest</span>
+                  </span>
+                </span>
+                <ArrowRight size={16} className="shrink-0 text-[#b9573d] transition-transform group-hover:translate-x-1" />
+              </Link>
             </div>
-
-            <div className="mt-5 flex flex-col items-center gap-1.5 text-center">
-              <div className="inline-flex items-center gap-2 text-[10px] font-medium text-[#858a80]">
-                <ShieldCheck size={13} strokeWidth={1.8} className="text-[#829071]" />
-                Secure access for authorised Janasiri accounts.
-              </div>
-              <p className="text-[10px] text-[#a0a399]">
-                Need help?{' '}
-                <a href="tel:+94814950206" className="font-semibold text-[#737a6c] transition hover:text-[#a94c34]">+94 81 495 0206</a>
-              </p>
-            </div>
-
-            {/* Company details remain available on smaller screens too */}
-            <div className="mt-7 border-t border-[#e6e3da] pt-5 lg:hidden">
-              <p className="mb-3 text-[9px] font-bold uppercase tracking-[0.18em] text-[#9a7769]">Janasiri · Locations & contact</p>
-              <div className="grid grid-cols-2 gap-2">
-                {companyLocations.map((location) => (
-                  <MobileInfoCard key={location.title} {...location} />
-                ))}
-              </div>
-              <a href="https://janasiri.com" target="_blank" rel="noreferrer" className="mt-4 block text-center text-[10px] font-semibold tracking-[0.12em] text-[#9a6a59]">
-                WWW.JANASIRI.COM
-              </a>
+            <div className="mt-5 flex items-center justify-center gap-2 text-[13px] text-[#62695e]">
+              <Phone size={15} className="text-[#647454]" />
+              Need help? <a href="tel:+94814950206" className="font-semibold text-[#30382d] hover:text-[#a94c34]">+94 81 495 0206</a>
             </div>
           </div>
         </section>
@@ -285,25 +264,13 @@ interface InfoCardProps {
 
 function InfoCard({ icon: Icon, title, details }: InfoCardProps) {
   return (
-    <article className="flex min-h-[82px] min-w-0 items-start gap-3 rounded-2xl border border-white/[0.10] bg-white/[0.055] p-3.5 transition duration-200 hover:border-[#d77c60]/30 hover:bg-white/[0.08]">
+    <article className="flex min-h-[90px] min-w-0 items-start gap-3 rounded-2xl border border-white/[0.10] bg-white/[0.055] p-3.5 transition duration-200 hover:border-[#d77c60]/30 hover:bg-white/[0.08]">
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#d77c60]/[0.14] text-[#e5a28d]">
         <Icon size={16} strokeWidth={1.9} />
       </div>
       <div className="min-w-0 pt-0.5">
-        <h3 className="text-[10px] font-bold tracking-[0.02em] text-white/90">{title}</h3>
-        <p className="mt-1 whitespace-pre-line break-words text-[10px] leading-[1.45] text-white/55">{details}</p>
-      </div>
-    </article>
-  );
-}
-
-function MobileInfoCard({ icon: Icon, title, details }: InfoCardProps) {
-  return (
-    <article className="flex min-w-0 items-start gap-2 rounded-xl border border-[#e8e4db] bg-white/75 p-2.5">
-      <Icon size={14} strokeWidth={1.8} className="mt-0.5 shrink-0 text-[#b9573d]" />
-      <div className="min-w-0">
-        <h3 className="text-[9px] font-bold text-[#454b43]">{title}</h3>
-        <p className="mt-1 whitespace-pre-line break-words text-[9px] leading-[1.4] text-[#858a80]">{details}</p>
+        <h3 className="text-[13px] font-semibold tracking-[0.01em] text-white/95">{title}</h3>
+        <p className="mt-1 whitespace-pre-line break-words text-[13px] leading-5 text-white/85">{details}</p>
       </div>
     </article>
   );
