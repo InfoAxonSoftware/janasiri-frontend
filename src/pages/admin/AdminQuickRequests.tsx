@@ -151,7 +151,7 @@ export default function AdminQuickRequests() {
           <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-violet-500" /> Quick Requests
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">Quick orders and quotations submitted by sales reps</p>
+          <p className="text-sm text-slate-500 mt-0.5">Quick orders and quotations from sales reps and the customer portal</p>
         </div>
       </div>
 
@@ -201,7 +201,7 @@ export default function AdminQuickRequests() {
                 <tr className="bg-slate-50 text-slate-500 text-[11px] uppercase tracking-wider">
                   <th className="text-left px-4 py-3 font-semibold">No.</th>
                   <th className="text-left px-4 py-3 font-semibold">Customer</th>
-                  <th className="text-left px-4 py-3 font-semibold">Rep</th>
+                  <th className="text-left px-4 py-3 font-semibold">Submitted by</th>
                   <th className="text-center px-3 py-3 font-semibold">Status</th>
                   <th className="text-center px-3 py-3 font-semibold">Files</th>
                   <th className="text-left px-3 py-3 font-semibold">Date</th>
@@ -219,7 +219,7 @@ export default function AdminQuickRequests() {
                         <span className="font-mono text-xs font-bold text-slate-700">{r.requestNumber}</span>
                       </td>
                       <td className="px-4 py-3 font-semibold text-slate-900">{r.customerName}</td>
-                      <td className="px-4 py-3 text-slate-600">{r.repName}</td>
+                      <td className="px-4 py-3 text-slate-600">{r.createdBy === 'Quick Order Portal' ? <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">Guest portal</span> : (r.repName || r.createdBy || '—')}</td>
                       <td className="px-3 py-3 text-center">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${STATUS_STYLES[r.status]}`}>
                           {STATUS_ICONS[r.status]} {r.status}
@@ -366,7 +366,7 @@ export default function AdminQuickRequests() {
 
                             {/* Meta */}
                             <div className="text-xs text-slate-400 flex flex-wrap gap-4 pt-1">
-                              <span>Submitted by <strong className="text-slate-600">{r.repName}</strong></span>
+                              <span>Submitted by <strong className="text-slate-600">{r.createdBy === 'Quick Order Portal' ? 'Guest customer · Quick Order Portal' : (r.repName || r.createdBy || '—')}</strong></span>
                               <span>On <strong className="text-slate-600">{fmtDate(r.createdAt)}</strong></span>
                               {r.updatedAt && <span>Updated <strong className="text-slate-600">{fmtDate(r.updatedAt)}</strong></span>}
                             </div>

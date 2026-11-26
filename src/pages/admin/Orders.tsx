@@ -23,6 +23,7 @@ import StatusBadge from '../../components/common/StatusBadge';
 import { quickRequestApi } from '../../services/api/quickRequestApi';
 import { downloadQuickRequestPdf, downloadQuickRequestExcel, downloadImage } from '../../utils/quickRequestPdf';
 import RoleOrderTrash from '../../components/orders/RoleOrderTrash';
+import GuestQuickOrderDetails, { parseGuestQuickOrderDetails } from '../../components/orders/GuestQuickOrderDetails';
 import { openPrivateFile, downloadPrivateFile } from '../../utils/fileAccess';
 
 // Strip LKR prefix for display
@@ -480,9 +481,9 @@ export default function AdminOrders() {
     let rows = (quickData as any[]).map((r: any) => ({
       _isQuick: true, _quick: r,
       id: r.id, orderNumber: r.requestNumber,
-      customerName: r.customerName, repName: r.repName || 'Admin',
+      customerName: r.customerName, repName: r.createdBy === 'Quick Order Portal' ? 'Guest' : (r.repName || 'Admin'),
       orderDate: r.createdAt, status: r.status,
-      items: [] as any[], totalAmount: 0, isFromApprovedQuotation: false,
+      items: r.createdBy === 'Quick Order Portal' ? parseGuestQuickOrderDetails(r.details || '').items : [], totalAmount: 0, isFromApprovedQuotation: false,
     }));
     if (status)         rows = rows.filter(r => r.status === status);
     if (repIdFilter)    rows = rows.filter(r => r._quick.repId === repIdFilter);
@@ -711,7 +712,7 @@ export default function AdminOrders() {
             ['QUICK ORDER REQUEST'], [],
             ['Request #', qr.requestNumber, 'Date', formatDate(qr.createdAt)],
             ['Customer', qr.customerName, 'Status', qr.status],
-            ['Sales Rep', qr.repName || 'Admin'], [],
+            ['Submitted by', qr.createdBy === 'Quick Order Portal' ? 'Guest' : (qr.repName || 'Admin')], [],
             ['Request Details'], [qr.details || '—'],
           ];
           if (qr.adminNotes) { qRows.push([], ['Admin Notes'], [qr.adminNotes]); }
@@ -913,7 +914,7 @@ export default function AdminOrders() {
           doc.setFont('helvetica', 'bold'); doc.text('Customer / Representative', 16, cBY + 6);
           doc.setFont('helvetica', 'normal');
           doc.text('Customer:', 16, cBY + 14); doc.text(qr.customerName || '—', 40, cBY + 14);
-          doc.text('Sales Rep:', 16, cBY + 20); doc.text(qr.repName || 'Admin', 40, cBY + 20);
+          doc.text('Sales Rep:', 16, cBY + 20); doc.text(qr.createdBy === 'Quick Order Portal' ? 'Guest' : (qr.repName || 'Admin'), 40, cBY + 20);
           autoTable(doc, {
             head: [['Request Details']],
             body: [[qr.details || '—']],
@@ -1251,8 +1252,12 @@ export default function AdminOrders() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-800">{qr.requestNumber}</p>
-                        <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">Quick Order</span>
-                        <p className="text-xs text-slate-500 mt-1 truncate">{qr.customerName} · {qr.repName || 'Admin'}</p>
+                        {qr.createdBy === 'Quick Order Portal' ? (
+                          <span className="inline-flex w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">Guest</span>
+                        ) : (
+                          <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">Quick Order</span>
+                        )}
+                        <p className="text-xs text-slate-500 mt-1 truncate">{qr.customerName} · {qr.createdBy === 'Quick Order Portal' ? 'Guest' : (qr.repName || 'Admin')}</p>
                       </div>
                       <StatusBadge status={qr.status} />
                       <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
@@ -1261,7 +1266,7 @@ export default function AdminOrders() {
                       <div className="px-4 pb-4 pt-2 space-y-3 bg-violet-50/20 border-b border-violet-100">
                         <div>
                           <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1">Order Details</p>
-                          <pre className="text-sm text-slate-800 whitespace-pre-wrap font-sans bg-white border border-slate-100 rounded-xl p-3">{qr.details}</pre>
+                          <GuestQuickOrderDetails request={qr} />
                         </div>
                         {qr.adminNotes && (
                           <div>
@@ -1529,7 +1534,7 @@ export default function AdminOrders() {
                     <span className="flex items-center gap-1.5">Shop <SortIcon field="customerName" sortField={sortField} sortDir={sortDir} /></span>
                   </th>
                   <th onClick={() => toggleSort('repName')} className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider border-r border-slate-600 cursor-pointer hover:bg-slate-700 transition-colors select-none w-32">
-                    <span className="flex items-center gap-1.5">Rep <SortIcon field="repName" sortField={sortField} sortDir={sortDir} /></span>
+                    <span className="flex items-center gap-1.5">Rep / Source <SortIcon field="repName" sortField={sortField} sortDir={sortDir} /></span>
                   </th>
                   <th className="px-3 py-3.5 text-center text-xs font-semibold uppercase tracking-wider border-r border-slate-600 w-16">Items</th>
                   <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider border-r border-slate-600 w-28 whitespace-nowrap">Total</th>
@@ -1560,17 +1565,21 @@ export default function AdminOrders() {
                         <td className="px-4 py-3 border-r border-slate-100 whitespace-nowrap">
                           <div className="flex flex-col gap-0.5">
                             <span className="font-bold text-slate-900">{qr.requestNumber}</span>
-                            <span className="inline-flex w-fit px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-violet-100 text-violet-700">Quick Order</span>
+                            {qr.createdBy === 'Quick Order Portal' ? (
+                              <span className="inline-flex w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">Guest</span>
+                            ) : (
+                              <span className="inline-flex w-fit px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-violet-100 text-violet-700">Quick Order</span>
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-3 border-r border-slate-100">
                           <span className="text-slate-700 truncate block">{qr.customerName}</span>
                         </td>
                         <td className="px-4 py-3 border-r border-slate-100">
-                          <span className="text-slate-500">{qr.repName || 'Admin'}</span>
+                          <span className="text-slate-500">{qr.createdBy === 'Quick Order Portal' ? 'Guest' : (qr.repName || 'Admin')}</span>
                         </td>
                         <td className="px-3 py-3 text-center border-r border-slate-100">
-                          <span className="text-slate-400">—</span>
+                          <span className="inline-flex min-w-7 items-center justify-center rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold tabular-nums text-slate-600">{qr.createdBy === 'Quick Order Portal' ? parseGuestQuickOrderDetails(qr.details || '').items.length : '—'}</span>
                         </td>
                         <td className="px-4 py-3 text-right border-r border-slate-100">
                           <span className="text-slate-400">—</span>
@@ -1590,7 +1599,7 @@ export default function AdminOrders() {
                                 <div className="flex-1 space-y-3">
                                   <div>
                                     <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Order Details</p>
-                                    <pre className="text-sm text-slate-800 whitespace-pre-wrap font-sans bg-white border border-slate-100 rounded-xl p-3">{qr.details}</pre>
+                                    <GuestQuickOrderDetails request={qr} />
                                   </div>
                                   {qr.adminNotes && (
                                     <div>
