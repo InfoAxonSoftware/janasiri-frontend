@@ -1,3 +1,4 @@
+import { DeleteNotificationButton, ClearNotificationActions } from '../../components/common/NotificationDeleteActions';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -90,7 +91,7 @@ export default function CustomerNotifications() {
       />
 
       <div className="px-4 lg:px-6 pb-6">
-        {isLoading ? (
+        <div className="mb-3 flex justify-end"><ClearNotificationActions userId={userId} disabled={!data?.totalCount} onDeleted={() => setPage(1)} /></div>        {isLoading ? (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="flex items-start gap-3">
@@ -136,6 +137,7 @@ export default function CustomerNotifications() {
                   <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.message}</p>
                   <p className="text-[10px] text-slate-300 mt-1 font-medium">{formatTime(n.createdAt)}</p>
                 </div>
+                <DeleteNotificationButton userId={userId} id={n.id} onDeleted={() => { if (notifications.length === 1 && page > 1) setPage(page - 1); }} />
               </div>
             ))}
           </div>
