@@ -1,21 +1,15 @@
 import { formatDate } from './formatters';
 import type { QuickRequestDto } from '../services/api/quickRequestApi';
 import { downloadPrivateFile } from './fileAccess';
+import { parseGuestQuickOrderDetails } from './guestQuickOrderDetails';
 
-/**
- * Downloads a file served by one of the backend's authenticated private-file endpoints
- * (payment evidence, quick-request images, KYC documents). `src` may be a full URL or a bare
- * "/api/..." path — either way only the API path onward is kept and fetched with the app's
- * Bearer token (see utils/fileAccess.ts); these are never plain, unauthenticated downloads.
- */
 export async function downloadImage(src: string, filename: string) {
   let pathPart: string;
   try {
-    pathPart = new URL(src).pathname; // e.g. /api/rep-payments/{id}/evidence
+    pathPart = new URL(src).pathname;
   } catch {
-    pathPart = src.startsWith('/') ? src : `/${src}`;
+    pathPart = src.startsWith('/') ? src : '/' + src;
   }
-
   await downloadPrivateFile(pathPart, filename);
 }
 
@@ -23,18 +17,34 @@ export async function downloadQuickRequestPdf(req: QuickRequestDto) {
   const { jsPDF } = await import('jspdf');
   const autoTableModule = await import('jspdf-autotable');
   const autoTable = autoTableModule.default || (autoTableModule as any);
-
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
-  const DARK: [number, number, number] = [0, 0, 0];
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - 28;
+  const dark: [number, number, number] = [34, 42, 35];
+  const light: [number, number, number] = [247, 247, 242];
+  const grid: [number, number, number] = [222, 224, 216];
   const title = req.type === 'Order' ? 'QUICK ORDER' : 'QUICK QUOTATION';
+  const isGuestOrder =
+    req.type === 'Order' &&
+    (req.createdBy || '').trim().toLowerCase() === 'quick order portal';
 
-  // ── Header ────────────────────────────────────────────────────────────────
+  const commonStyles = {
+    font: 'helvetica' as const,
+    fontSize: 8,
+    cellPadding: 2.6,
+    overflow: 'linebreak' as const,
+    valign: 'middle' as const,
+    lineColor: grid,
+    lineWidth: 0.15,
+    textColor: dark,
+  };
+
+  // Company header
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...DARK);
+  doc.setTextColor(...dark);
   doc.text('JANASIRI DISTRIBUTORS (PVT) LTD', 14, 16);
-
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.text('Reg Address: No 205 Wattarantenna Passage, Kandy.', 14, 21);
@@ -42,85 +52,150 @@ export async function downloadQuickRequestPdf(req: QuickRequestDto) {
   doc.text('Email: janasiridistributors@yahoo.com / Vat 114608394-7000', 14, 29);
   doc.text('Bank AC: Sampath Bank PLC / Kandy Super Grade Branch / AC: 0007 1002 3131', 14, 33);
 
-  // ── Title box ─────────────────────────────────────────────────────────────
+  // Request summary box
   const gridX = 135;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text(title, gridX + 15, 15, { align: 'center' });
-
+  doc.text(title, gridX + 30.5, 15, { align: 'center' });
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.setDrawColor(0, 0, 0);
+  doc.setDrawColor(...dark);
   doc.setLineWidth(0.2);
-
-  // Date row
-  doc.rect(gridX, 17, 25, 6);
-  doc.text('Date', gridX + 2, 21);
-  doc.rect(gridX + 25, 17, 36, 6);
-  doc.text(formatDate(req.createdAt), gridX + 27, 21);
-
-  // Request No row
-  doc.rect(gridX, 23, 25, 6);
-  doc.text('Request No', gridX + 2, 27);
-  doc.rect(gridX + 25, 23, 36, 6);
-  doc.text(req.requestNumber, gridX + 27, 27);
-
-  // Status row
-  doc.rect(gridX, 29, 25, 6);
-  doc.text('Status', gridX + 2, 33);
-  doc.rect(gridX + 25, 29, 36, 6);
-  doc.text(req.status, gridX + 27, 33);
-
-  // Horizontal rule
+  [
+    ['Date', formatDate(req.createdAt)],
+    ['Request No', req.requestNumber],
+    ['Status', req.status],
+  ].forEach(([label, value], index) => {
+    const y = 17 + index * 6;
+    doc.rect(gridX, y, 25, 6);
+    doc.text(label, gridX + 2, y + 4);
+    doc.rect(gridX + 25, y, 36, 6);
+    doc.text(String(value || '—'), gridX + 27, y + 4);
+  });
   doc.setLineWidth(0.5);
   doc.line(14, 37, pageWidth - 14, 37);
 
-  // ── Info table ────────────────────────────────────────────────────────────
+  // Customer summary table
   autoTable(doc, {
     startY: 40,
-    theme: 'plain',
-    styles: { fontSize: 9, cellPadding: 2 },
-    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 40 } },
+    theme: 'grid',
+    styles: commonStyles,
+    columnStyles: {
+      0: { cellWidth: 40, fontStyle: 'bold', fillColor: light },
+      1: { cellWidth: contentWidth - 40 },
+    },
     body: [
-      ['Customer', req.customerName],
+      ['Customer', req.customerName || '—'],
       ['Sales Rep', req.repName || '—'],
-      ['Type', req.type],
+      ['Type', req.type || '—'],
     ],
+    margin: { left: 14, right: 14 },
   });
 
-  // ── Details ───────────────────────────────────────────────────────────────
-  const afterInfo = (doc as any).lastAutoTable.finalY + 6;
+  let cursorY = (doc as any).lastAutoTable.finalY + 5;
 
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Order / Quotation Details:', 14, afterInfo);
-  doc.setFont('helvetica', 'normal');
-
-  const detailLines = doc.splitTextToSize(req.details, pageWidth - 28);
-  doc.text(detailLines, 14, afterInfo + 6);
-
-  const afterDetails = afterInfo + 6 + detailLines.length * 5;
-
-  // ── Admin notes ───────────────────────────────────────────────────────────
-  if (req.adminNotes) {
+  if (isGuestOrder) {
+    const guest = parseGuestQuickOrderDetails(req.details || '');
     doc.setFont('helvetica', 'bold');
-    doc.text('Admin Notes:', 14, afterDetails + 6);
-    doc.setFont('helvetica', 'normal');
-    const noteLines = doc.splitTextToSize(req.adminNotes, pageWidth - 28);
-    doc.text(noteLines, 14, afterDetails + 12);
+    doc.setFontSize(9);
+    doc.text('Guest Order Details', 14, cursorY);
+    autoTable(doc, {
+      startY: cursorY + 2,
+      theme: 'grid',
+      styles: commonStyles,
+      headStyles: { fillColor: dark, textColor: [255, 255, 255], fontStyle: 'bold' },
+      head: [['Contact Person', 'Contact Number', 'Submitted Via']],
+      body: [[
+        guest.contactPerson || '—',
+        guest.contactNumber || '—',
+        guest.submittedVia || 'Guest Order Form',
+      ]],
+      columnStyles: {
+        0: { cellWidth: 52 },
+        1: { cellWidth: 52 },
+        2: { cellWidth: contentWidth - 104 },
+      },
+      margin: { left: 14, right: 14 },
+    });
+
+    cursorY = (doc as any).lastAutoTable.finalY + 5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('Order Items', 14, cursorY);
+    const itemRows = guest.items.length
+      ? guest.items.map((item, index) => [
+          String(index + 1),
+          item.description || '—',
+          item.size || '—',
+          item.brand || '—',
+          item.quantity.toLocaleString(),
+        ])
+      : [['—', 'No item details available', '—', '—', '—']];
+
+    autoTable(doc, {
+      startY: cursorY + 2,
+      theme: 'grid',
+      styles: commonStyles,
+      headStyles: { fillColor: dark, textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: light },
+      head: [['S/N', 'Item Description', 'Size', 'Brand', 'Qty']],
+      body: itemRows,
+      columnStyles: {
+        0: { cellWidth: 12, halign: 'center' },
+        1: { cellWidth: 65 },
+        2: { cellWidth: 24 },
+        3: { cellWidth: 42 },
+        4: { cellWidth: contentWidth - 143, halign: 'right' },
+      },
+      margin: { left: 14, right: 14 },
+      showHead: 'everyPage',
+    });
+    cursorY = (doc as any).lastAutoTable.finalY + 5;
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('Order / Quotation Details', 14, cursorY);
+    autoTable(doc, {
+      startY: cursorY + 2,
+      theme: 'grid',
+      styles: { ...commonStyles, cellPadding: 3.2 },
+      body: [[req.details || '—']],
+      columnStyles: { 0: { cellWidth: contentWidth } },
+      margin: { left: 14, right: 14 },
+    });
+    cursorY = (doc as any).lastAutoTable.finalY + 5;
   }
 
-  // ── Footer ────────────────────────────────────────────────────────────────
-  const pageH = doc.internal.pageSize.getHeight();
-  doc.setDrawColor(180, 180, 180);
-  doc.setLineWidth(0.3);
-  doc.line(14, pageH - 15, pageWidth - 14, pageH - 15);
-  doc.setFontSize(7);
-  doc.setTextColor(120, 120, 120);
-  doc.text('JANASIRI DISTRIBUTORS (PVT) LTD — Confidential', 14, pageH - 10);
-  doc.text(`Printed: ${new Date().toLocaleString()}`, pageWidth - 14, pageH - 10, { align: 'right' });
+  if (req.adminNotes?.trim()) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('Admin Notes', 14, cursorY);
+    autoTable(doc, {
+      startY: cursorY + 2,
+      theme: 'grid',
+      styles: { ...commonStyles, cellPadding: 3.2 },
+      body: [[req.adminNotes.trim()]],
+      columnStyles: { 0: { cellWidth: contentWidth } },
+      margin: { left: 14, right: 14 },
+    });
+  }
 
-  doc.save(`${req.requestNumber}.pdf`);
+  // Footer on every page
+  const printedAt = new Date().toLocaleString();
+  const pageCount = doc.getNumberOfPages();
+  for (let page = 1; page <= pageCount; page += 1) {
+    doc.setPage(page);
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.3);
+    doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(120, 120, 120);
+    doc.text('JANASIRI DISTRIBUTORS (PVT) LTD — Confidential', 14, pageHeight - 10);
+    doc.text('Printed: ' + printedAt, pageWidth - 14, pageHeight - 10, { align: 'right' });
+  }
+
+  doc.save(req.requestNumber + '.pdf');
 }
 
 export async function downloadQuickRequestExcel(req: QuickRequestDto) {
@@ -138,12 +213,10 @@ export async function downloadQuickRequestExcel(req: QuickRequestDto) {
     ['Request Details'],
     [req.details || '—'],
   ];
-  if (req.adminNotes) {
-    rows.push([], ['Admin Notes'], [req.adminNotes]);
-  }
+  if (req.adminNotes) rows.push([], ['Admin Notes'], [req.adminNotes]);
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{ wch: 20 }, { wch: 40 }, { wch: 20 }, { wch: 40 }];
   const safeName = req.requestNumber.replace(/[:/\\?*[\]]/g, '-').substring(0, 31);
   XLSX.utils.book_append_sheet(wb, ws, safeName);
-  XLSX.writeFile(wb, `${req.requestNumber}.xlsx`);
+  XLSX.writeFile(wb, req.requestNumber + '.xlsx');
 }

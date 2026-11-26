@@ -7,6 +7,7 @@ const PUBLIC_PATH_PREFIXES = [
   '/auth/login',
   '/auth/register',
   '/auth/refresh-token',
+  '/public/quick-orders',
 ];
 
 function isPublicRequest(url?: string) {
