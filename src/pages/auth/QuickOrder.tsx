@@ -428,14 +428,13 @@ export default function QuickOrder() {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_84%_5%,rgba(193,91,62,0.065),transparent_25%),radial-gradient(circle_at_8%_88%,rgba(105,120,88,0.07),transparent_30%)]" />
 
       <header className="relative z-10 border-b border-[#e8e4db] bg-[#f7f5f0]/90 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-[1240px] items-center justify-between gap-3 px-4 py-3.5 sm:px-6 lg:px-8">
-          <Link to="/login" className="flex min-w-0 items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[#bd674d]">
+        <div className="mx-auto flex w-full max-w-[1240px] flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3.5 sm:px-6 lg:px-8">
+          <Link to="/login" className="flex shrink-0 items-center gap-2 sm:gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[#bd674d]">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f5f1e8] p-1 shadow-sm">
               <img src="/logo.png" alt="Janasiri Distributors" className="h-full w-full object-contain" />
             </span>
             <span className="min-w-0">
-              <span className="block text-[16px] font-bold tracking-[-0.02em] text-[#252b24]">Janasiri</span>
-              <span className="mt-0.5 block text-[13px] font-semibold tracking-[0.08em] text-[#647454]">Distributors</span>
+              <span className="block whitespace-nowrap text-[13px] font-bold leading-tight tracking-[-0.025em] text-[#252b24] min-[375px]:text-[15px] sm:text-[16px]">Janasiri Distributors (Pvt) Ltd</span>
             </span>
           </Link>
           <div className="flex shrink-0 items-center gap-2">
@@ -562,7 +561,7 @@ export default function QuickOrder() {
             <div className="grid gap-4 px-4 py-5 sm:grid-cols-2 sm:gap-5 sm:px-6 sm:py-6">
               <AttachmentPanel
                 kind="documents"
-                title="Attach documents"
+                title="Attach Purchase Orders"
                 description="PDF files · up to 10 MB each"
                 accept=".pdf,application/pdf"
                 files={documents}
@@ -571,7 +570,7 @@ export default function QuickOrder() {
               />
               <AttachmentPanel
                 kind="images"
-                title="Attach photos"
+                title="Photos of Purchase Orders"
                 description="JPG, PNG or WEBP · up to 5 MB each"
                 accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                 files={images}
@@ -714,7 +713,7 @@ export default function QuickOrder() {
         </AnimatePresence>
         <footer className="flex flex-col items-center justify-between gap-2 px-2 pt-6 text-center text-[12px] text-[#777e72] sm:flex-row sm:text-left">
           <span>© {new Date().getFullYear()} Janasiri Distributors (Pvt) Ltd.</span>
-          <span className="inline-flex items-center gap-2"><Phone size={14} /> Need help? <a href="tel:+94814950206" className="font-semibold text-[#62695e] hover:text-[#b9573d]">+94 81 495 0206</a></span>
+          <span className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 leading-5"><span className="inline-flex items-center gap-1.5 whitespace-nowrap"><Phone size={14} className="shrink-0" /><span>Hotline:</span><a href="tel:+94777675322" className="inline-flex items-center font-semibold leading-5 text-[#62695e] hover:text-[#b9573d]">0777-675322</a></span></span>
         </footer>
       </div>
 
