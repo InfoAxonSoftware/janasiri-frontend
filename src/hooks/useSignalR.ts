@@ -238,6 +238,7 @@ export function useSignalR() {
         });
 
         queryClient.invalidateQueries({ queryKey: ['rep-assigned-guest-order', user?.id] });
+        queryClient.invalidateQueries({ queryKey: ['rep-assigned-quotation', user?.id] });
 
         // Quick request related data.
         queryClient.invalidateQueries({

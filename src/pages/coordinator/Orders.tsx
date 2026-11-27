@@ -23,7 +23,8 @@ import StatusBadge from '../../components/common/StatusBadge';
 import { downloadQuickRequestPdf, downloadQuickRequestExcel } from '../../utils/quickRequestPdf';
 import RoleOrderTrash from '../../components/orders/RoleOrderTrash';
 import GuestOrderRepAssignment from '../../components/orders/GuestOrderRepAssignment';
-import GuestQuickOrderDetails, { parseGuestQuickOrderDetails } from '../../components/orders/GuestQuickOrderDetails';
+import ExpandedQuickOrder from '../../components/orders/ExpandedQuickOrder';
+import { parseGuestQuickOrderDetails } from '../../components/orders/GuestQuickOrderDetails';
 import { openPrivateFile, downloadPrivateFile } from '../../utils/fileAccess';
 
 const BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || '';
@@ -216,7 +217,7 @@ export default function CoordinatorOrders() {
       orderDate: r.createdAt, status: r.status,
       items: r.createdBy === 'Quick Order Portal' ? parseGuestQuickOrderDetails(r.details || '').items : [], totalAmount: 0,
     }));
-    return rows.filter(r => (!status || r.status === status) && (!repIdFilter || r._quick.repId === repIdFilter));
+    return rows.filter(r => (!status || r.status === status) && (!repIdFilter || (r._quick.repId === repIdFilter || r._quick.assignedReps?.some((rep: any) => rep.id === repIdFilter))));
   }, [quickData, status, repIdFilter]);
 
   const allRows = useMemo(() => {
@@ -543,66 +544,7 @@ export default function CoordinatorOrders() {
                             {isExpanded && (
                               <tr className="border-b border-violet-100">
                                 <td colSpan={9} className="p-0">
-                                  <div className="bg-gradient-to-b from-violet-50/40 to-white px-8 py-5">
-                                    <div className="flex items-start gap-6">
-                                      <div className="flex-1 space-y-3">
-                                        <div>
-                                          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Order Details</p>
-                                          <GuestQuickOrderDetails request={qr} />
-                                        </div>
-                                        {qr.adminNotes && (
-                                          <div>
-                                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1">Notes</p>
-                                            <p className="text-sm text-slate-700 bg-amber-50 border border-amber-100 rounded-xl p-3">{qr.adminNotes}</p>
-                                          </div>
-                                        )}
-                                        {getQuickAttachments(qr).length > 0 && (
-                                          <div>
-                                            <p className="text-sm font-semibold text-slate-700 mb-2">Attachments ({getQuickAttachments(qr).length})</p>
-                                            <div className="flex flex-wrap gap-2.5">
-                                              {getQuickAttachments(qr).map((attachment: any, index: number) => {
-                                                if (isPdfQuickAttachment(attachment)) {
-                                                  return <CoordinatorQuickPdfAttachmentCard key={attachment.id || index} attachment={attachment} />;
-                                                }
-
-                                                return (
-                                                  <div key={attachment.id || index} className="group relative h-24 w-24 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                                                    <PrivateImage apiPath={attachment.url} alt={attachment.originalFileName || ('Photo ' + (index + 1))} className="h-full w-full object-cover" />
-                                                    <button type="button" onClick={async (event) => {
-                                                      event.stopPropagation();
-                                                      try { await downloadPrivateFile(attachment.url, attachment.originalFileName || ('guest-order-photo-' + (index + 1))); } catch { toast.error('Photo download failed'); }
-                                                    }} className="absolute bottom-1 right-1 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/95 text-slate-700 opacity-0 shadow-sm transition group-hover:opacity-100" aria-label="Download attachment">
-                                                      <Download size={14} />
-                                                    </button>
-                                                  </div>
-                                                );
-                                              })}
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                      <div className="w-[210px] shrink-0 space-y-2">
-                                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Update Status</p>
-                                        <div className="flex flex-col gap-1.5" onClick={e => e.stopPropagation()}>
-                                          {FILTER_ORDER_STATUSES.map(s => (
-                                            <button key={s} onClick={() => quickStatusMut.mutate({ id: qr.id, s })} disabled={quickStatusMut.isPending}
-                                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition text-left ${s === qr.status ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'} disabled:opacity-50`}>
-                                              {s === qr.status ? `✓ ${s}` : s}
-                                            </button>
-                                          ))}
-                                        </div>
-                                        {qr.createdBy === 'Quick Order Portal' && <GuestOrderRepAssignment key={qr.id + String(qr.repId)} request={qr} compact />}
-                                        <div className="flex gap-1.5 mt-1" onClick={e => e.stopPropagation()}>
-                                          <button onClick={() => downloadQuickRequestPdf(qr)} className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 text-xs font-semibold rounded-lg text-red-600 hover:bg-red-50 border border-red-100 transition">
-                                            <Download className="w-3 h-3" /> PDF
-                                          </button>
-                                          <button onClick={() => downloadQuickRequestExcel(qr)} className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 text-xs font-semibold rounded-lg text-emerald-600 hover:bg-emerald-50 border border-emerald-100 transition">
-                                            <FileSpreadsheet className="w-3 h-3" /> Excel
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
+                                  <ExpandedQuickOrder request={qr} manageReps={qr.createdBy === 'Quick Order Portal'} statuses={FILTER_ORDER_STATUSES} statusPending={quickStatusMut.isPending} onStatusChange={s => quickStatusMut.mutate({ id: qr.id, s })} onExport={format => format === 'pdf' ? downloadQuickRequestPdf(qr) : downloadQuickRequestExcel(qr)} />
                                 </td>
                               </tr>
                             )}
@@ -762,11 +704,7 @@ export default function CoordinatorOrders() {
                     <span>{formatDateTime(row.orderDate)}</span>
                     <span>Rep: {row.repName || ''}</span>
                   </div>
-                  {row._isQuick && row._quick?.createdBy === 'Quick Order Portal' && expandedOrderId === row.id && (
-                    <div className="mb-3 space-y-3" onClick={e => e.stopPropagation()}>
-                      <GuestQuickOrderDetails request={row._quick} />
-                      <GuestOrderRepAssignment key={row.id + String(row._quick.repId)} request={row._quick} />
-                    </div>
+                  {row._isQuick && expandedOrderId === row.id && (<ExpandedQuickOrder request={row._quick} manageReps={row._quick.createdBy === 'Quick Order Portal'} statuses={FILTER_ORDER_STATUSES} statusPending={quickStatusMut.isPending} onStatusChange={s => quickStatusMut.mutate({ id: row._quick.id, s })} onExport={format => format === 'pdf' ? downloadQuickRequestPdf(row._quick) : downloadQuickRequestExcel(row._quick)} inset />
                   )}
                   <div className="flex justify-between items-center pt-2.5 border-t border-slate-50">
                     <span className="font-bold text-slate-900">{row._isQuick ? '—' : formatCurrency(row.totalAmount)}</span>
@@ -774,7 +712,7 @@ export default function CoordinatorOrders() {
                   </div>
                 </div>
               )}
-              onTileClick={(row: any) => row._isQuick ? (row._quick?.createdBy === 'Quick Order Portal' && setExpandedOrderId(p => p === row.id ? null : row.id)) : navigate(`/coordinator/orders/${row.id}`)}
+              onTileClick={(row: any) => row._isQuick ? setExpandedOrderId(p => p === row.id ? null : row.id) : navigate(`/coordinator/orders/${row.id}`)}
             />
           )}
         </>

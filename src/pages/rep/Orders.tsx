@@ -5,7 +5,8 @@ import { PrivateImage } from '../../components/common/PrivateImage';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import GuestQuickOrderDetails, { parseGuestQuickOrderDetails } from '../../components/orders/GuestQuickOrderDetails';
+import ExpandedQuickOrder from '../../components/orders/ExpandedQuickOrder';
+import { parseGuestQuickOrderDetails } from '../../components/orders/GuestQuickOrderDetails';
 import { openPrivateFile, downloadPrivateFile } from '../../utils/fileAccess';
 import {
   AlertTriangle,
@@ -1650,38 +1651,7 @@ function MobileOrderBottomSheet({
 
         <div className="max-h-[calc(88vh-88px)] overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom,0px)+24px)] pt-4">
           {row._isQuick ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-2">
-                <CompactMetric
-                  label="Date"
-                  value={formatDateTime(
-                    row.orderDate || row.createdAt,
-                  )}
-                />
-                <CompactMetric
-                  label="Attachments"
-                  value={String(getQuickAttachments(row._quick).length)}
-                />
-              </div>
-
-              {isGuestOrder(row) ? <GuestQuickOrderDetails request={row._quick} /> : <DetailValue label="Request Details" value={row._quick?.details || 'No details'} multiline />}
-
-              {row._quick?.adminNotes && (
-                <DetailValue
-                  label="Admin Notes"
-                  value={row._quick.adminNotes}
-                  multiline
-                  amber
-                />
-              )}
-
-              <QuickImages
-                request={row._quick}
-                onPreviewImage={onPreviewImage}
-              />
-
-
-            </div>
+            <ExpandedQuickOrder request={row._quick} onPreviewImage={onPreviewImage} inset />
           ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-2">
@@ -1747,41 +1717,7 @@ function DesktopExpandedOrder({
   onPreviewImage: (url: string) => void;
 }) {
   if (row._isQuick) {
-    const request = row._quick;
-
-    return (
-      <div className="bg-gradient-to-b from-violet-50/40 to-white px-8 py-5">
-        <div className={isGuestOrder(row) ? "min-w-0" : "grid gap-5 xl:grid-cols-[minmax(0,1fr)_220px]"}>
-          <div className="space-y-3">
-            {isGuestOrder(row) ? (
-              <div>
-                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">Order Details</p>
-                <GuestQuickOrderDetails request={request} />
-              </div>
-            ) : (
-              <>
-                <DetailValue label="Customer" value={customerName} />
-                <DetailValue label="Request Details" value={request.details || 'No details'} multiline />
-              </>
-            )}
-            {request.adminNotes && (
-              <DetailValue
-                label="Admin Notes"
-                value={request.adminNotes}
-                multiline
-                amber
-              />
-            )}
-            <QuickImages
-              request={request}
-              onPreviewImage={onPreviewImage}
-            />
-          </div>
-
-
-        </div>
-      </div>
-    );
+    return <ExpandedQuickOrder request={row._quick} onPreviewImage={onPreviewImage} />;
   }
 
   return (
