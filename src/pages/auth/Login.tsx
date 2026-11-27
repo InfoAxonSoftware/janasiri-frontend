@@ -43,7 +43,7 @@ const companyLocations = [
   {
     icon: Phone,
     title: 'Contact & VAT',
-    details: '+94 81 495 0206\nTP / Hotline  ·  VAT: 114608394-7000',
+    details: 'Office: 0814-950206\nHotline: 0777-675322\nVAT: 114608394-7000',
   },
 ];
 
@@ -85,14 +85,16 @@ export default function Login() {
                 <img src="/logo.png" alt="Janasiri Distributors logo" className="h-full w-full object-contain" />
               </div>
               <div>
-                <p className="text-[18px] font-bold leading-tight tracking-[-0.02em] text-white">Janasiri</p>
-                <p className="mt-0.5 text-[13px] font-semibold tracking-[0.08em] text-[#d6a18e]">Distributors</p>
+                <p className="whitespace-nowrap text-[16px] font-bold leading-tight tracking-[-0.02em] text-white xl:text-[18px]">Janasiri Distributors (Pvt) Ltd</p>
               </div>
             </div>
           </header>
 
-          <div className="relative z-10 my-auto w-full max-w-[680px] py-6">
+          <div className="relative z-10 my-auto min-h-0 w-full max-w-[680px] overflow-y-auto [scrollbar-width:none] py-3 xl:py-4">
 
+            <div className="mb-3 w-full max-w-[540px]" aria-hidden="true">
+              <img src="/janasiri-delivery.svg" alt="" className="h-[clamp(66px,11vh,112px)] w-full object-contain object-left" />
+            </div>
             <h1 className="max-w-[620px] text-[clamp(2.35rem,3.35vw,3.65rem)] font-semibold leading-[1.04] tracking-[-0.055em] text-[#fbf8f1]">
               Sri Lanka&apos;s trusted <span className="font-serif italic font-normal text-[#df9278]">food service partner.</span>
             </h1>
@@ -100,7 +102,7 @@ export default function Login() {
               Simplifying supply chains for thousands of businesses across the island with reliable, optimised wholesale distribution management.
             </p>
 
-            <div className="mt-7">
+            <div className="mt-5 xl:mt-7">
               <div className="mb-3 flex items-center justify-between gap-4">
                 <p className="text-[13px] font-bold tracking-[0.02em] text-[#e2a18b]">Our locations & contact details</p>
               </div>
@@ -130,13 +132,12 @@ export default function Login() {
           <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#c15b3e]/[0.07] blur-3xl lg:hidden" />
 
           <div className="relative w-full min-w-0 max-w-[420px] animate-fade-in-scale">
-            <div className="mb-7 flex items-center gap-3 lg:hidden">
-              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-white p-1 shadow-sm ring-1 ring-black/[0.05]">
+            <div className="mb-7 flex items-center gap-2 sm:gap-3 lg:hidden">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white p-1 shadow-sm ring-1 ring-black/[0.05]">
                 <img src="/logo.png" alt="Janasiri Distributors logo" className="h-full w-full object-contain" />
               </div>
               <div>
-                <p className="text-[17px] font-bold tracking-[-0.02em] text-[#252b24]">Janasiri</p>
-                <p className="mt-0.5 text-[13px] font-semibold tracking-[0.08em] text-[#647454]">Distributors</p>
+                <p className="whitespace-nowrap text-[13px] font-bold leading-tight tracking-[-0.025em] text-[#252b24] min-[375px]:text-[15px] sm:text-[17px]">Janasiri Distributors (Pvt) Ltd</p>
               </div>
             </div>
 
@@ -239,15 +240,18 @@ export default function Login() {
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#647454] shadow-sm"><ShoppingBag size={16} strokeWidth={1.8} /></span>
                   <span className="min-w-0">
                     <span className="block text-[13px] font-medium text-[#62695e]">No account needed</span>
-                    <span className="mt-0.5 block text-[14px] font-semibold text-[#30382d]">Place an order as a guest</span>
+                    <span className="mt-0.5 block text-[14px] font-semibold text-[#30382d]">Direct Purchase Order</span>
                   </span>
                 </span>
                 <ArrowRight size={16} className="shrink-0 text-[#b9573d] transition-transform group-hover:translate-x-1" />
               </Link>
             </div>
-            <div className="mt-5 flex items-center justify-center gap-2 text-[13px] text-[#62695e]">
-              <Phone size={15} className="text-[#647454]" />
-              Need help? <a href="tel:+94814950206" className="font-semibold text-[#30382d] hover:text-[#a94c34]">+94 81 495 0206</a>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[13px] leading-5 text-[#62695e]">
+              <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+                <Phone size={15} className="shrink-0 text-[#647454]" />
+                <span>Hotline:</span>
+                <a href="tel:+94777675322" className="inline-flex items-center font-semibold leading-5 text-[#30382d] hover:text-[#a94c34]">0777-675322</a>
+              </span>
             </div>
           </div>
         </section>
