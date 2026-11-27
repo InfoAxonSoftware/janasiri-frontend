@@ -158,19 +158,16 @@ export default function TrackGuestOrder() {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_84%_5%,rgba(193,91,62,0.055),transparent_25%),radial-gradient(circle_at_8%_88%,rgba(105,120,88,0.06),transparent_30%)]" />
 
       <header className="relative z-10 border-b border-[#e8e4db] bg-[#f7f5f0]/90 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-[1180px] items-center justify-between gap-3 px-4 py-3.5 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-[1180px] flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3.5 sm:px-6 lg:px-8">
           <Link
             to="/quick-order"
-            className="flex min-w-0 items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[#bd674d]"
+            className="flex shrink-0 items-center gap-2 sm:gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[#bd674d]"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f5f1e8] p-1 shadow-sm">
               <img src="/logo.png" alt="Janasiri Distributors" className="h-full w-full object-contain" />
             </span>
             <span className="min-w-0">
-              <span className="block text-[16px] font-bold tracking-[-0.02em] text-[#252b24]">Janasiri</span>
-              <span className="mt-0.5 block text-[13px] font-semibold tracking-[0.08em] text-[#647454]">
-                Distributors
-              </span>
+              <span className="block whitespace-nowrap text-[13px] font-bold leading-tight tracking-[-0.025em] text-[#252b24] min-[375px]:text-[15px] sm:text-[16px]">Janasiri Distributors (Pvt) Ltd</span>
             </span>
           </Link>
 
