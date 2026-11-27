@@ -1,4 +1,5 @@
 // @ts-nocheck
+import GuestOrderRepAssignment from '../../components/orders/GuestOrderRepAssignment';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { PrivateImage } from '../../components/common/PrivateImage';
@@ -741,6 +742,7 @@ export default function AdminQuotations() {
                     </div>
                     {isExpanded && (
                       <div className="px-4 pb-4 pt-2 space-y-3 bg-emerald-50/20 border-b border-emerald-100">
+                          <GuestOrderRepAssignment request={qr} />
                         <div>
                           <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1">Quotation Details</p>
                           <pre className="text-sm text-slate-800 whitespace-pre-wrap font-sans bg-white border border-slate-100 rounded-xl p-3">{qr.details}</pre>
@@ -846,6 +848,7 @@ export default function AdminQuotations() {
                   const mTotal = mSubtotal + mTax - mDiscount;
                   return (
                     <div className="bg-blue-50/30 px-4 py-3 border-b border-blue-100 space-y-2.5">
+                          <GuestOrderRepAssignment kind="quotations" request={q} />
                       {q.items?.map(item => {
                         const rate = item.unitPrice || 0;
                         const qty = item.quantity || 0;
@@ -1013,6 +1016,7 @@ export default function AdminQuotations() {
                         <tr className="border-b border-emerald-100">
                           <td colSpan={10} className="p-0">
                             <div className="bg-gradient-to-b from-emerald-50/40 to-white px-8 py-5">
+                          <div className="mb-4 max-w-4xl"><GuestOrderRepAssignment request={qr} /></div>
                               <div className="flex items-start gap-6">
                                 <div className="flex-1 space-y-3">
                                   <div>
@@ -1137,6 +1141,7 @@ export default function AdminQuotations() {
                         <tr className="border-b border-blue-100">
                           <td colSpan={10} className="p-0">
                             <div className="bg-gradient-to-b from-slate-50 to-white px-8 py-5">
+                          <div className="mb-4 max-w-4xl"><GuestOrderRepAssignment kind="quotations" request={q} /></div>
                               {/* Header bar — info left, actions right */}
                               <div className="flex items-center justify-between gap-4 flex-wrap mb-4" onClick={e => e.stopPropagation()}>
                                 <div className="flex items-center gap-2 text-sm flex-wrap">
