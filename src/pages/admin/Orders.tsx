@@ -23,6 +23,7 @@ import StatusBadge from '../../components/common/StatusBadge';
 import { quickRequestApi } from '../../services/api/quickRequestApi';
 import { downloadQuickRequestPdf, downloadQuickRequestExcel, downloadImage } from '../../utils/quickRequestPdf';
 import RoleOrderTrash from '../../components/orders/RoleOrderTrash';
+import GuestOrderRepAssignment from '../../components/orders/GuestOrderRepAssignment';
 import GuestQuickOrderDetails, { parseGuestQuickOrderDetails } from '../../components/orders/GuestQuickOrderDetails';
 import { openPrivateFile, downloadPrivateFile } from '../../utils/fileAccess';
 
@@ -481,7 +482,7 @@ export default function AdminOrders() {
     let rows = (quickData as any[]).map((r: any) => ({
       _isQuick: true, _quick: r,
       id: r.id, orderNumber: r.requestNumber,
-      customerName: r.customerName, repName: r.createdBy === 'Quick Order Portal' ? 'Guest' : (r.repName || 'Admin'),
+      customerName: r.customerName, repName: r.createdBy === 'Quick Order Portal' ? (r.repName || 'Unassigned') : (r.repName || 'Admin'),
       orderDate: r.createdAt, status: r.status,
       items: r.createdBy === 'Quick Order Portal' ? parseGuestQuickOrderDetails(r.details || '').items : [], totalAmount: 0, isFromApprovedQuotation: false,
     }));
@@ -712,7 +713,7 @@ export default function AdminOrders() {
             ['QUICK ORDER REQUEST'], [],
             ['Request #', qr.requestNumber, 'Date', formatDate(qr.createdAt)],
             ['Customer', qr.customerName, 'Status', qr.status],
-            ['Submitted by', qr.createdBy === 'Quick Order Portal' ? 'Guest' : (qr.repName || 'Admin')], [],
+            ['Submitted by', qr.createdBy === 'Quick Order Portal' ? 'Guest' : (qr.repName || 'Admin')], ['Assigned sales rep', qr.repName || 'Unassigned'], [],
             ['Request Details'], [qr.details || '—'],
           ];
           if (qr.adminNotes) { qRows.push([], ['Admin Notes'], [qr.adminNotes]); }
@@ -914,7 +915,7 @@ export default function AdminOrders() {
           doc.setFont('helvetica', 'bold'); doc.text('Customer / Representative', 16, cBY + 6);
           doc.setFont('helvetica', 'normal');
           doc.text('Customer:', 16, cBY + 14); doc.text(qr.customerName || '—', 40, cBY + 14);
-          doc.text('Sales Rep:', 16, cBY + 20); doc.text(qr.createdBy === 'Quick Order Portal' ? 'Guest' : (qr.repName || 'Admin'), 40, cBY + 20);
+          doc.text('Sales Rep:', 16, cBY + 20); doc.text(qr.createdBy === 'Quick Order Portal' ? (qr.repName || 'Unassigned') : (qr.repName || 'Admin'), 40, cBY + 20);
           autoTable(doc, {
             head: [['Request Details']],
             body: [[qr.details || '—']],
@@ -1257,7 +1258,7 @@ export default function AdminOrders() {
                         ) : (
                           <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">Quick Order</span>
                         )}
-                        <p className="text-xs text-slate-500 mt-1 truncate">{qr.customerName} · {qr.createdBy === 'Quick Order Portal' ? 'Guest' : (qr.repName || 'Admin')}</p>
+                        <p className="text-xs text-slate-500 mt-1 truncate">{qr.customerName} · {qr.createdBy === 'Quick Order Portal' ? (qr.repName || 'Unassigned') : (qr.repName || 'Admin')}</p>
                       </div>
                       <StatusBadge status={qr.status} />
                       <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
@@ -1267,6 +1268,7 @@ export default function AdminOrders() {
                         <div>
                           <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1">Order Details</p>
                           <GuestQuickOrderDetails request={qr} />
+                          {qr.createdBy === 'Quick Order Portal' && <GuestOrderRepAssignment key={qr.id + String(qr.repId)} request={qr} />}
                         </div>
                         {qr.adminNotes && (
                           <div>
@@ -1576,7 +1578,7 @@ export default function AdminOrders() {
                           <span className="text-slate-700 truncate block">{qr.customerName}</span>
                         </td>
                         <td className="px-4 py-3 border-r border-slate-100">
-                          <span className="text-slate-500">{qr.createdBy === 'Quick Order Portal' ? 'Guest' : (qr.repName || 'Admin')}</span>
+                          <span className="text-slate-500">{qr.createdBy === 'Quick Order Portal' ? (qr.repName || 'Unassigned') : (qr.repName || 'Admin')}</span>
                         </td>
                         <td className="px-3 py-3 text-center border-r border-slate-100">
                           <span className="inline-flex min-w-7 items-center justify-center rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold tabular-nums text-slate-600">{qr.createdBy === 'Quick Order Portal' ? parseGuestQuickOrderDetails(qr.details || '').items.length : '—'}</span>
@@ -1668,7 +1670,7 @@ export default function AdminOrders() {
                                     </div>
                                   )}
                                 </div>
-                                <div className="shrink-0 space-y-2 min-w-[190px]">
+                                <div className="w-[210px] shrink-0 space-y-2">
                                   <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Update Status</p>
                                   <div className="flex flex-col gap-1.5" onClick={e => e.stopPropagation()}>
                                     {QUICK_STATUSES.map(s => (
@@ -1679,6 +1681,7 @@ export default function AdminOrders() {
                                       >{s === qr.status ? `✓ ${s}` : s}</button>
                                     ))}
                                   </div>
+                                  {qr.createdBy === 'Quick Order Portal' && <GuestOrderRepAssignment key={qr.id + String(qr.repId)} request={qr} compact />}
                                   <div className="flex gap-1.5 mt-1" onClick={e => e.stopPropagation()}>
                                     <button onClick={() => exportOrders('pdf', false, order)} className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 text-xs font-semibold rounded-lg text-red-600 hover:bg-red-50 border border-red-100 transition">
                                       <FileText className="w-3 h-3" /> PDF
