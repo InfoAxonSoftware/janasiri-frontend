@@ -15,6 +15,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import './Login.css';
 
 const roleRoutes: Record<string, string> = {
   SuperAdmin: '/admin',
@@ -67,12 +68,12 @@ export default function Login() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-[#f7f5f0] text-[#242923] selection:bg-[#c15b3e]/20 lg:h-screen lg:min-h-0 lg:overflow-hidden">
+    <main className="janasiri-login relative min-h-screen overflow-x-hidden bg-[#f7f5f0] text-[#242923] selection:bg-[#c15b3e]/20 lg:h-screen lg:min-h-0 lg:overflow-hidden">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_78%_10%,rgba(193,91,62,0.07),transparent_26%),radial-gradient(circle_at_10%_88%,rgba(105,120,88,0.07),transparent_30%)]" />
 
-      <div className="relative grid min-h-screen w-full min-w-0 lg:h-full lg:min-h-0 lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="janasiri-login-grid relative grid min-h-screen w-full min-w-0 lg:h-full lg:min-h-0 lg:grid-cols-[1.05fr_0.95fr]">
         {/* Janasiri brand and company information */}
-        <section className="relative hidden min-h-0 overflow-hidden bg-[#222a23] px-8 py-7 text-[#f7f4ed] lg:flex lg:h-full lg:flex-col xl:px-11 2xl:px-14">
+        <section className="janasiri-login-brand relative hidden min-h-0 overflow-hidden bg-[#222a23] px-8 py-7 text-[#f7f4ed] lg:flex lg:h-full lg:flex-col xl:px-11 2xl:px-14">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_8%_14%,rgba(193,91,62,0.24),transparent_34%),radial-gradient(circle_at_92%_82%,rgba(129,146,106,0.16),transparent_34%)]" />
           <div className="pointer-events-none absolute -right-36 top-24 h-[27rem] w-[27rem] rounded-full border border-white/[0.06]" />
           <div className="pointer-events-none absolute -right-20 top-40 h-[20rem] w-[20rem] rounded-full border border-[#d77c60]/20" />
@@ -90,20 +91,20 @@ export default function Login() {
             </div>
           </header>
 
-          <div className="relative z-10 my-auto min-h-0 w-full max-w-[680px] overflow-y-auto [scrollbar-width:none] py-3 xl:py-4">
+          <div className="janasiri-login-brand-content relative z-10 my-auto min-h-0 w-full max-w-[680px] py-3 xl:py-4">
 
-            <div className="mb-3 w-full max-w-[540px]" aria-hidden="true">
+            <div className="janasiri-login-truck mb-3 w-full max-w-[540px]" aria-hidden="true">
               <img src="/janasiri-delivery.svg" alt="" className="h-[clamp(66px,11vh,112px)] w-full object-contain object-left" />
             </div>
-            <h1 className="max-w-[620px] text-[clamp(2.35rem,3.35vw,3.65rem)] font-semibold leading-[1.04] tracking-[-0.055em] text-[#fbf8f1]">
+            <h1 className="janasiri-login-headline max-w-[620px] text-[clamp(2.35rem,3.35vw,3.65rem)] font-semibold leading-[1.04] tracking-[-0.055em] text-[#fbf8f1]">
               Sri Lanka&apos;s trusted <span className="font-serif italic font-normal text-[#df9278]">food service partner.</span>
             </h1>
-            <p className="mt-4 max-w-[540px] text-[13px] leading-6 text-[#d5d8d0]/75 xl:text-sm">
+            <p className="janasiri-login-intro mt-4 max-w-[540px] text-[13px] leading-6 text-[#d5d8d0]/75 xl:text-sm">
               Simplifying supply chains for thousands of businesses across the island with reliable, optimised wholesale distribution management.
             </p>
 
-            <div className="mt-5 xl:mt-7">
-              <div className="mb-3 flex items-center justify-between gap-4">
+            <div className="janasiri-login-locations mt-5 xl:mt-7">
+              <div className="janasiri-login-location-heading mb-3 flex items-center justify-between gap-4">
                 <p className="text-[13px] font-bold tracking-[0.02em] text-[#e2a18b]">Our locations & contact details</p>
               </div>
               <div className="grid grid-cols-2 gap-2.5">
@@ -119,7 +120,7 @@ export default function Login() {
             </div>
           </div>
 
-          <footer className="relative z-10 flex shrink-0 items-center justify-between gap-4 border-t border-white/10 pt-4 text-[12px] text-white/75">
+          <footer className="janasiri-login-footer relative z-10 flex shrink-0 items-center justify-between gap-4 border-t border-white/10 pt-4 text-[12px] text-white/75">
             <p>© {new Date().getFullYear()} Janasiri Distributors (Pvt) Ltd. All rights reserved.</p>
             <a href="https://janasiri.com" target="_blank" rel="noreferrer" className="shrink-0 font-semibold tracking-[0.12em] transition hover:text-white">
               WWW.JANASIRI.COM
@@ -128,7 +129,7 @@ export default function Login() {
         </section>
 
         {/* Sign-in panel */}
-        <section className="relative flex min-h-screen min-w-0 items-center justify-center overflow-x-hidden px-5 py-7 sm:px-8 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:px-9 lg:py-5 xl:px-12 2xl:px-16">
+        <section className="janasiri-login-signin relative flex min-h-screen min-w-0 items-center justify-center overflow-x-hidden px-5 py-7 sm:px-8 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:px-9 lg:py-5 xl:px-12 2xl:px-16">
           <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#c15b3e]/[0.07] blur-3xl lg:hidden" />
 
           <div className="relative w-full min-w-0 max-w-[420px] animate-fade-in-scale">
@@ -141,7 +142,7 @@ export default function Login() {
               </div>
             </div>
 
-            <div className="mb-6">
+            <div className="janasiri-login-signin-heading mb-6">
               <h2 className="text-[2.45rem] font-semibold leading-[1.06] tracking-[-0.055em] text-[#242923] sm:text-[2.7rem]">
                 Welcome <span className="font-serif italic font-normal text-[#b9573d]">back.</span>
               </h2>
@@ -228,7 +229,7 @@ export default function Login() {
               </button>
             </form>
 
-            <div className="mt-6 border-t border-[#e6e3da] pt-5 text-center">
+            <div className="janasiri-login-register mt-6 border-t border-[#e6e3da] pt-5 text-center">
               <p className="text-[14px] text-[#62695e]">
                 New customer?{' '}
                 <Link to="/customer-register" className="font-bold text-[#ae5139] decoration-[#ae5139]/40 underline-offset-4 transition hover:text-[#883c2a] hover:underline">
@@ -246,7 +247,7 @@ export default function Login() {
                 <ArrowRight size={16} className="shrink-0 text-[#b9573d] transition-transform group-hover:translate-x-1" />
               </Link>
             </div>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[13px] leading-5 text-[#62695e]">
+            <div className="janasiri-login-hotline mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[13px] leading-5 text-[#62695e]">
               <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
                 <Phone size={15} className="shrink-0 text-[#647454]" />
                 <span>Hotline:</span>
@@ -268,7 +269,7 @@ interface InfoCardProps {
 
 function InfoCard({ icon: Icon, title, details }: InfoCardProps) {
   return (
-    <article className="flex min-h-[90px] min-w-0 items-start gap-3 rounded-2xl border border-white/[0.10] bg-white/[0.055] p-3.5 transition duration-200 hover:border-[#d77c60]/30 hover:bg-white/[0.08]">
+    <article className="janasiri-login-info-card flex min-h-[90px] min-w-0 items-start gap-3 rounded-2xl border border-white/[0.10] bg-white/[0.055] p-3.5 transition duration-200 hover:border-[#d77c60]/30 hover:bg-white/[0.08]">
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#d77c60]/[0.14] text-[#e5a28d]">
         <Icon size={16} strokeWidth={1.9} />
       </div>

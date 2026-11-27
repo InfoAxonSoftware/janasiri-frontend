@@ -1,3 +1,4 @@
+import { getGuestAssignmentRoute } from '../../utils/guestAssignmentNotification';
 import { DeleteNotificationButton, ClearNotificationActions } from './NotificationDeleteActions';
 import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -159,6 +160,8 @@ export default function NotificationPanel({ open, onClose, userId, accent = 'ind
                   type="button"
                   onClick={() => {
                     if (!n.isRead) markReadMut.mutate(n.id);
+                    const route = user?.role === 'SalesRep' ? getGuestAssignmentRoute(n) : null;
+                    if (route) { onClose(); navigate(route); }
                   }}
                   aria-label={`${n.isRead ? 'Read' : 'Unread'} notification: ${n.title}`}
                   className="min-w-0 flex-1 text-left px-3 py-2.5 hover:bg-slate-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"

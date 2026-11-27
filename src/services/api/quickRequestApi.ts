@@ -69,6 +69,14 @@ export interface UpdateQuickRequestStatusDto {
 }
 
 export const quickRequestApi = {
+  getEligibleReps: (id: string) =>
+    api.get<{ data: { id: string; fullName: string; employeeCode: string }[] }>('/quick-requests/' + id + '/eligible-reps'),
+
+  assignRep: (id: string, repId: string | null, expectedRepId: string | null) =>
+    api.put<{ data: QuickRequestDto }>('/quick-requests/' + id + '/rep-assignment', { repId, expectedRepId }),
+
+
+
   // ── Rep ───────────────────────────────────────────────────────────────────
 
   create: (dto: CreateQuickRequestDto) =>

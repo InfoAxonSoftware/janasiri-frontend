@@ -3,7 +3,9 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { PrivateImage } from '../../components/common/PrivateImage';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+import GuestQuickOrderDetails, { parseGuestQuickOrderDetails } from '../../components/orders/GuestQuickOrderDetails';
 import { openPrivateFile, downloadPrivateFile } from '../../utils/fileAccess';
 import {
   AlertTriangle,
@@ -67,6 +69,17 @@ const getQuickAttachments = (request: any) => {
   }));
 };
 
+const isGuestOrder = (row: any) =>
+  row._isQuick && (row._quick?.createdBy ?? row.createdBy) === 'Quick Order Portal';
+
+function QuickOrderSourceBadge({ row }: { row: any }) {
+  return isGuestOrder(row) ? (
+    <span className="inline-flex w-fit shrink-0 rounded-full border border-blue-200 bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Guest</span>
+  ) : (
+    <span className="inline-flex w-fit shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">Quick Order</span>
+  );
+}
+
 const selectionKey = (row: any) =>
   `${row._isQuick ? 'quick' : 'order'}:${row.id}`;
 
@@ -83,6 +96,25 @@ type DeleteConfirmState =
 export default function RepOrders() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
+  const guestOrderId = searchParams.get('guestOrder');
+  const guestOrder = useQuery({
+    queryKey: ['rep-assigned-guest-order', user?.id, guestOrderId],
+    queryFn: () => quickRequestApi.repGetById(guestOrderId!).then(r => r.data.data),
+    enabled: !!user?.id && !!guestOrderId,
+    retry: false,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+  const closeGuestOrder = () => {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      next.delete('guestOrder');
+      return next;
+    }, { replace: true });
+  };
 
   const [activeTab, setActiveTab] = useState<'active' | 'trash'>('active');
   const [page, setPage] = useState(1);
@@ -1040,6 +1072,7 @@ export default function RepOrders() {
                             />
                           </div>
 
+                          {row._isQuick && <div className="ml-9 mt-1"><QuickOrderSourceBadge row={row} /></div>}
                           {getCustomerName(row) && (
                             <p className="ml-9 mt-2 truncate text-xs font-medium text-slate-600">
                               {getCustomerName(row)}
@@ -1193,9 +1226,7 @@ export default function RepOrders() {
                                   {row.orderNumber}
                                 </span>
                                 {row._isQuick ? (
-                                  <span className="inline-flex w-fit rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700">
-                                    Quick Order
-                                  </span>
+                                  <QuickOrderSourceBadge row={row} />
                                 ) : row.isFromApprovedQuotation ? (
                                   <span className="inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
                                     From Quotation
@@ -1212,9 +1243,7 @@ export default function RepOrders() {
 
                             <td className="border-r border-slate-100 px-3 py-3 text-center">
                               <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-100 px-1.5 text-xs font-bold text-slate-600">
-                                {row._isQuick
-                                  ? '—'
-                                  : row.items?.length || 0}
+                                {isGuestOrder(row) ? parseGuestQuickOrderDetails(row._quick?.details || '').items.length : row._isQuick ? '—' : row.items?.length || 0}
                               </span>
                             </td>
 
@@ -1315,9 +1344,7 @@ export default function RepOrders() {
                           {row.displayNumber}
                         </p>
                         {row._isQuick && (
-                          <span className="flex-shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold text-violet-700">
-                            Quick
-                          </span>
+                          <QuickOrderSourceBadge row={row} />
                         )}
                       </div>
                       <p className="mt-0.5 truncate text-xs text-slate-500">
@@ -1395,6 +1422,31 @@ export default function RepOrders() {
           />,
           document.body,
         )}
+
+
+      {guestOrderId && createPortal(
+        guestOrder.isError ? (
+          <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label="Order unavailable">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+              <h2 className="font-bold text-slate-800">Order unavailable</h2>
+              <p className="mt-2 text-sm text-slate-500">This guest order may no longer be assigned to you, or could not be loaded.</p>
+              <button type="button" onClick={closeGuestOrder} className="mt-4 w-full rounded-lg bg-slate-800 py-2 text-sm font-semibold text-white">Close</button>
+            </div>
+          </div>
+        ) : guestOrder.isFetching || !guestOrder.data ? (
+          <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label="Loading order">
+            <div className="rounded-xl bg-white p-5 text-sm text-slate-600">Loading assigned order... <button type="button" className="ml-3 font-semibold text-indigo-600" onClick={closeGuestOrder}>Cancel</button></div>
+          </div>
+        ) : (
+          <MobileOrderBottomSheet
+            row={{ ...guestOrder.data, _isQuick: true, _quick: guestOrder.data, orderNumber: guestOrder.data.requestNumber, orderDate: guestOrder.data.createdAt }}
+            customerName={guestOrder.data.customerName}
+            onClose={closeGuestOrder}
+            onOpenFull={() => {}}
+            onPreviewImage={setQuickLightbox}
+            showDesktop
+          />
+        ), document.body)}
 
       {selectedMobileOrder &&
         createPortal(
@@ -1546,21 +1598,23 @@ function MobileOrderBottomSheet({
   onClose,
   onOpenFull,
   onPreviewImage,
+  showDesktop = false,
 }: {
   row: any;
   customerName: string;
   onClose: () => void;
   onOpenFull: () => void;
   onPreviewImage: (url: string) => void;
+  showDesktop?: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-[9998] lg:hidden">
+    <div className={"fixed inset-0 z-[9998] " + (showDesktop ? "" : "lg:hidden")}>
       <div
         className="absolute inset-0 bg-black/45 backdrop-blur-[1px]"
         onClick={onClose}
       />
 
-      <section className="absolute bottom-0 left-0 right-0 max-h-[88vh] overflow-hidden rounded-t-3xl bg-white shadow-2xl animate-slide-up">
+      <section className={"absolute bottom-0 left-0 right-0 max-h-[88vh] overflow-hidden rounded-t-3xl bg-white shadow-2xl " + (showDesktop ? "lg:bottom-auto lg:left-1/2 lg:right-auto lg:top-1/2 lg:w-[min(850px,92vw)] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl" : "animate-slide-up")}>
         <div className="border-b border-slate-100 bg-white px-4 pb-3 pt-2">
           <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-200" />
 
@@ -1571,9 +1625,7 @@ function MobileOrderBottomSheet({
                   {row.orderNumber}
                 </h2>
                 {row._isQuick && (
-                  <span className="flex-shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[9px] font-bold text-violet-700">
-                    Quick Order
-                  </span>
+                  <QuickOrderSourceBadge row={row} />
                 )}
               </div>
 
@@ -1612,11 +1664,7 @@ function MobileOrderBottomSheet({
                 />
               </div>
 
-              <DetailValue
-                label="Request Details"
-                value={row._quick?.details || 'No details'}
-                multiline
-              />
+              {isGuestOrder(row) ? <GuestQuickOrderDetails request={row._quick} /> : <DetailValue label="Request Details" value={row._quick?.details || 'No details'} multiline />}
 
               {row._quick?.adminNotes && (
                 <DetailValue
@@ -1703,14 +1751,19 @@ function DesktopExpandedOrder({
 
     return (
       <div className="bg-gradient-to-b from-violet-50/40 to-white px-8 py-5">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_220px]">
+        <div className={isGuestOrder(row) ? "min-w-0" : "grid gap-5 xl:grid-cols-[minmax(0,1fr)_220px]"}>
           <div className="space-y-3">
-            <DetailValue label="Customer" value={customerName} />
-            <DetailValue
-              label="Request Details"
-              value={request.details || 'No details'}
-              multiline
-            />
+            {isGuestOrder(row) ? (
+              <div>
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">Order Details</p>
+                <GuestQuickOrderDetails request={request} />
+              </div>
+            ) : (
+              <>
+                <DetailValue label="Customer" value={customerName} />
+                <DetailValue label="Request Details" value={request.details || 'No details'} multiline />
+              </>
+            )}
             {request.adminNotes && (
               <DetailValue
                 label="Admin Notes"
