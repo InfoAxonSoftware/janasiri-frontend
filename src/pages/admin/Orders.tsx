@@ -24,7 +24,8 @@ import { quickRequestApi } from '../../services/api/quickRequestApi';
 import { downloadQuickRequestPdf, downloadQuickRequestExcel, downloadImage } from '../../utils/quickRequestPdf';
 import RoleOrderTrash from '../../components/orders/RoleOrderTrash';
 import GuestOrderRepAssignment from '../../components/orders/GuestOrderRepAssignment';
-import GuestQuickOrderDetails, { parseGuestQuickOrderDetails } from '../../components/orders/GuestQuickOrderDetails';
+import ExpandedQuickOrder from '../../components/orders/ExpandedQuickOrder';
+import { parseGuestQuickOrderDetails } from '../../components/orders/GuestQuickOrderDetails';
 import { openPrivateFile, downloadPrivateFile } from '../../utils/fileAccess';
 
 // Strip LKR prefix for display
@@ -487,7 +488,7 @@ export default function AdminOrders() {
       items: r.createdBy === 'Quick Order Portal' ? parseGuestQuickOrderDetails(r.details || '').items : [], totalAmount: 0, isFromApprovedQuotation: false,
     }));
     if (status)         rows = rows.filter(r => r.status === status);
-    if (repIdFilter)    rows = rows.filter(r => r._quick.repId === repIdFilter);
+    if (repIdFilter)    rows = rows.filter(r => (r._quick.repId === repIdFilter || r._quick.assignedReps?.some((rep: any) => rep.id === repIdFilter)));
     if (customerIdFilter) {
       const custName = customers.find(c => c.id === customerIdFilter)?.shopName?.toLowerCase();
       if (custName) rows = rows.filter(r => (r.customerName || '').toLowerCase() === custName);
@@ -1264,92 +1265,7 @@ export default function AdminOrders() {
                       <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                     </div>
                     {isExpanded && (
-                      <div className="px-4 pb-4 pt-2 space-y-3 bg-violet-50/20 border-b border-violet-100">
-                        <div>
-                          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1">Order Details</p>
-                          <GuestQuickOrderDetails request={qr} />
-                          {qr.createdBy === 'Quick Order Portal' && <GuestOrderRepAssignment key={qr.id + String(qr.repId)} request={qr} />}
-                        </div>
-                        {qr.adminNotes && (
-                          <div>
-                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1">Admin Notes</p>
-                            <p className="text-sm text-slate-700 bg-amber-50 border border-amber-100 rounded-xl p-3">{qr.adminNotes}</p>
-                          </div>
-                        )}
-                        {getQuickAttachments(qr).length > 0 && (
-                          <div>
-                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">
-                              Attachments ({getQuickAttachments(qr).length})
-                            </p>
-
-                            <div className="flex flex-wrap gap-2">
-                              {getQuickAttachments(qr).map((attachment: any) => {
-                                const pdf = isPdfQuickAttachment(attachment);
-
-                                if (pdf) {
-                                  return <QuickPdfAttachmentCard key={attachment.id} attachment={attachment} />;
-                                }
-
-                                return (
-                                  <div key={attachment.id} className="relative group w-20 h-20">
-                                    <PrivateImage
-                                      apiPath={attachment.url}
-                                      alt={attachment.originalFileName || 'Attachment'}
-                                      onClick={() => setQuickLightbox(attachment.url)}
-                                      className="w-20 h-20 rounded-xl object-cover border border-slate-200 cursor-pointer hover:opacity-90 transition"
-                                      onError={e => { (e.target as any).style.display = 'none'; }}
-                                    />
-                                    <button
-                                      onClick={async e => {
-                                        e.stopPropagation();
-                                        try {
-                                          await downloadPrivateFile(
-                                            attachment.url,
-                                            attachment.originalFileName || 'photo.jpg',
-                                          );
-                                        } catch {
-                                          try {
-                                            await downloadImage(
-                                              `${BASE}${attachment.url}`,
-                                              attachment.originalFileName || 'photo.jpg',
-                                            );
-                                          } catch {
-                                            toast.error('Download failed');
-                                          }
-                                        }
-                                      }}
-                                      className="absolute bottom-1 right-1 w-6 h-6 rounded-lg bg-black/60 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
-                                      title="Download attachment"
-                                    >
-                                      <Download className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                        <div className="space-y-2">
-                          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Update Status</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {QUICK_STATUSES.map(s => (
-                              <button key={s}
-                                onClick={e => { e.stopPropagation(); quickUpdateMut.mutate({ id: qr.id, status: s, notes: qr.adminNotes || '' }); }}
-                                disabled={quickUpdateMut.isPending}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${s === qr.status ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'} disabled:opacity-50`}
-                              >{s === qr.status ? `✓ ${s}` : s}</button>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={e => { e.stopPropagation(); exportOrders('pdf', false, order); }} className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg text-red-600 hover:bg-red-50 transition">
-                            <FileText className="w-3.5 h-3.5" /> PDF
-                          </button>
-                          <button onClick={e => { e.stopPropagation(); exportOrders('excel', false, order); }} className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg text-emerald-600 hover:bg-emerald-50 transition">
-                            <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
-                          </button>
-                        </div>
-                      </div>
+                      <ExpandedQuickOrder request={qr} manageReps statuses={QUICK_STATUSES} statusPending={quickUpdateMut.isPending} onStatusChange={status => quickUpdateMut.mutate({ id: qr.id, status, notes: qr.adminNotes || '' })} onExport={format => exportOrders(format, false, order)} onPreviewImage={setQuickLightbox} />
                     )}
                   </div>
                 );
@@ -1409,6 +1325,7 @@ export default function AdminOrders() {
 
                   {isExpanded && (
                     <div className="bg-blue-50/30 px-4 py-3 border-b border-blue-100 space-y-2.5">
+                      <GuestOrderRepAssignment kind="orders" request={order} />
                       {/* Items */}
                       {order.items?.map((item) => {
                         const r = item.unitPrice || 0;
@@ -1596,103 +1513,7 @@ export default function AdminOrders() {
                       {isExpanded && (
                         <tr className="border-b border-violet-100">
                           <td colSpan={9} className="p-0">
-                            <div className="bg-gradient-to-b from-violet-50/40 to-white px-8 py-5">
-                              <div className="flex items-start gap-6">
-                                <div className="flex-1 space-y-3">
-                                  <div>
-                                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Order Details</p>
-                                    <GuestQuickOrderDetails request={qr} />
-                                  </div>
-                                  {qr.adminNotes && (
-                                    <div>
-                                      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1">Admin Notes</p>
-                                      <p className="text-sm text-slate-700 bg-amber-50 border border-amber-100 rounded-xl p-3">{qr.adminNotes}</p>
-                                    </div>
-                                  )}
-                                  {getQuickAttachments(qr).length > 0 && (
-                                    <div>
-                                      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">
-                                        Attachments ({getQuickAttachments(qr).length})
-                                      </p>
-
-                                      <div className="flex flex-wrap gap-2.5">
-                                        {getQuickAttachments(qr).map((attachment: any) => {
-                                          const pdf = isPdfQuickAttachment(attachment);
-
-                                          if (pdf) {
-                                            return <QuickPdfAttachmentCard key={attachment.id} attachment={attachment} />;
-                                          }
-
-                                          return (
-                                            <div
-                                              key={attachment.id}
-                                              className="relative group w-20 h-20"
-                                            >
-                                              <PrivateImage
-                                                apiPath={attachment.url}
-                                                alt={attachment.originalFileName || 'Attachment'}
-                                                onClick={e => {
-                                                  e.stopPropagation();
-                                                  setQuickLightbox(attachment.url);
-                                                }}
-                                                className="w-20 h-20 rounded-xl object-cover border border-slate-200 cursor-pointer hover:opacity-90 transition"
-                                                onError={e => { (e.target as any).style.display = 'none'; }}
-                                              />
-
-                                              <button
-                                                onClick={async e => {
-                                                  e.stopPropagation();
-                                                  try {
-                                                    await downloadPrivateFile(
-                                                      attachment.url,
-                                                      attachment.originalFileName || 'photo.jpg',
-                                                    );
-                                                  } catch {
-                                                    try {
-                                                      await downloadImage(
-                                                        `${BASE}${attachment.url}`,
-                                                        attachment.originalFileName || 'photo.jpg',
-                                                      );
-                                                    } catch {
-                                                      toast.error('Download failed');
-                                                    }
-                                                  }
-                                                }}
-                                                className="absolute bottom-1 right-1 w-6 h-6 rounded-lg bg-black/60 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
-                                                title="Download attachment"
-                                              >
-                                                <Download className="w-3 h-3" />
-                                              </button>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="w-[210px] shrink-0 space-y-2">
-                                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Update Status</p>
-                                  <div className="flex flex-col gap-1.5" onClick={e => e.stopPropagation()}>
-                                    {QUICK_STATUSES.map(s => (
-                                      <button key={s}
-                                        onClick={() => quickUpdateMut.mutate({ id: qr.id, status: s, notes: qr.adminNotes || '' })}
-                                        disabled={quickUpdateMut.isPending}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition text-left ${s === qr.status ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'} disabled:opacity-50`}
-                                      >{s === qr.status ? `✓ ${s}` : s}</button>
-                                    ))}
-                                  </div>
-                                  {qr.createdBy === 'Quick Order Portal' && <GuestOrderRepAssignment key={qr.id + String(qr.repId)} request={qr} compact />}
-                                  <div className="flex gap-1.5 mt-1" onClick={e => e.stopPropagation()}>
-                                    <button onClick={() => exportOrders('pdf', false, order)} className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 text-xs font-semibold rounded-lg text-red-600 hover:bg-red-50 border border-red-100 transition">
-                                      <FileText className="w-3 h-3" /> PDF
-                                    </button>
-                                    <button onClick={() => exportOrders('excel', false, order)} className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 text-xs font-semibold rounded-lg text-emerald-600 hover:bg-emerald-50 border border-emerald-100 transition">
-                                      <FileSpreadsheet className="w-3 h-3" /> Excel
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+                            <ExpandedQuickOrder request={qr} manageReps statuses={QUICK_STATUSES} statusPending={quickUpdateMut.isPending} onStatusChange={status => quickUpdateMut.mutate({ id: qr.id, status, notes: qr.adminNotes || '' })} onExport={format => exportOrders(format, false, order)} onPreviewImage={setQuickLightbox} />
                           </td>
                         </tr>
                       )}
@@ -1770,6 +1591,7 @@ export default function AdminOrders() {
                       <tr className="border-b border-blue-100">
                         <td colSpan={9} className="p-0">
                           <div className="bg-gradient-to-b from-slate-50 to-white px-8 py-5">
+                            <div className="mb-4 max-w-4xl"><GuestOrderRepAssignment kind="orders" request={order} /></div>
                             {/* Single row: order info (left) + all buttons (right) */}
                             <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
                               {/* Order info */}

@@ -3,14 +3,15 @@ import { Fragment, useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { PrivateImage } from '../../components/common/PrivateImage';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { repGetQuotations, repDeleteQuotation, repGetQuotationsTrash, repRestoreQuotation, repPurgeQuotation } from '../../services/api/quotationApi';
+import { repGetQuotations, repGetQuotation, repDeleteQuotation, repGetQuotationsTrash, repRestoreQuotation, repPurgeQuotation } from '../../services/api/quotationApi';
 import toast from 'react-hot-toast';
 import { customersApi } from '../../services/api/customersApi';
 import { quickRequestApi } from '../../services/api/quickRequestApi';
 import { formatCurrency, formatRelative, formatDate, formatDateTime } from '../../utils/formatters';
 import { taxCodeToRate } from '../../utils/calculations';
 
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import { FileText, Plus, Download, X, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown, Trash2, RotateCcw } from 'lucide-react';
 import { useIsDesktop } from '../../hooks/useMediaQuery';
 import PageHeader from '../../components/common/PageHeader';
@@ -40,6 +41,32 @@ export default function RepQuotations() {
   const [statusFilter, setStatusFilter] = useState('');
   const [selected, setSelected] = useState<Quotation | null>(null);
   const [selectedQuick, setSelectedQuick] = useState<any>(null);
+  const { user } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const quickId = params.get('assignedQuick');
+  const quotationId = params.get('assignedQuotation');
+  const linkedId = quickId || quotationId;
+  const linked = useQuery({
+    queryKey: ['rep-assigned-quotation', user?.id, quickId ? 'quick' : 'standard', linkedId],
+    queryFn: async () => {
+      if (quickId) {
+        const result = (await quickRequestApi.repGetById(quickId)).data.data;
+        if (result.type !== 'Quotation') throw new Error('Not a quotation');
+        return result;
+      }
+      return repGetQuotation(quotationId!);
+    },
+    enabled: !!user?.id && !!linkedId,
+    retry: false, staleTime: 0, refetchOnMount: 'always',
+  });
+  const clearLinked = () => setParams(previous => {
+    const next = new URLSearchParams(previous);
+    next.delete('assignedQuick'); next.delete('assignedQuotation'); return next;
+  }, { replace: true });
+  const detailQuick = linkedId ? (quickId && !linked.isError && !linked.isFetching ? linked.data : null) : selectedQuick;
+  const detailQuotation = linkedId ? (quotationId && !quickId && !linked.isError && !linked.isFetching ? linked.data : null) : selected;
+  const closeQuick = () => { setSelectedQuick(null); if (linkedId) clearLinked(); };
+  const closeQuotation = () => { setSelected(null); if (linkedId) clearLinked(); };
   const [quickLightbox, setQuickLightbox] = useState<string | null>(null);
   const [sortField, setSortField] = useState<string>('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -667,39 +694,45 @@ export default function RepQuotations() {
         )}
       </div>
 
-      {selectedQuick && createPortal(
-        <div className="fixed inset-0 z-[9998] bg-black/60 flex items-end md:items-center justify-center p-4" onClick={() => setSelectedQuick(null)}>
+      {linkedId && (linked.isFetching || linked.isError || !linked.data) && (
+        <BottomSheet isOpen onClose={clearLinked} title={linked.isError ? 'Quotation unavailable' : 'Loading quotation'}>
+          <p className="text-sm text-slate-600">{linked.isError ? 'This quotation may no longer be assigned to you, or could not be loaded.' : 'Loading assigned quotation...'}</p>
+        </BottomSheet>
+      )}
+
+      {detailQuick && createPortal(
+        <div className="fixed inset-0 z-[9998] bg-black/60 flex items-end md:items-center justify-center p-4" onClick={closeQuick}>
           <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div>
-                <p className="text-base font-bold text-slate-900">{selectedQuick.requestNumber}</p>
+                <p className="text-base font-bold text-slate-900">{detailQuick.requestNumber}</p>
                 <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700">Quick Quotation</span>
               </div>
-              <button onClick={() => setSelectedQuick(null)} className="p-2 rounded-full hover:bg-slate-100 transition">
+              <button onClick={closeQuick} className="p-2 rounded-full hover:bg-slate-100 transition">
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
             <div className="px-5 py-4 space-y-4 overflow-y-auto max-h-[70vh]">
               <div className="grid grid-cols-2 gap-3">
-                <div><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Customer</p><p className="text-sm text-slate-800">{selectedQuick.customerName}</p></div>
-                <div><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Date</p><p className="text-sm text-slate-800">{formatDateTime(selectedQuick.createdAt)}</p></div>
-                <div><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Status</p><StatusBadge status={selectedQuick.status} type="quotations" /></div>
+                <div><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Customer</p><p className="text-sm text-slate-800">{detailQuick.customerName}</p></div>
+                <div><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Date</p><p className="text-sm text-slate-800">{formatDateTime(detailQuick.createdAt)}</p></div>
+                <div><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Status</p><StatusBadge status={detailQuick.status} type="quotations" /></div>
               </div>
               <div>
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Quotation Details</p>
-                <pre className="text-sm text-slate-800 whitespace-pre-wrap font-sans bg-slate-50 border border-slate-100 rounded-xl p-3">{selectedQuick.details}</pre>
+                <pre className="text-sm text-slate-800 whitespace-pre-wrap font-sans bg-slate-50 border border-slate-100 rounded-xl p-3">{detailQuick.details}</pre>
               </div>
-              {selectedQuick.adminNotes && (
+              {detailQuick.adminNotes && (
                 <div>
                   <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Admin Notes</p>
-                  <p className="text-sm text-slate-700 bg-amber-50 border border-amber-100 rounded-xl p-3">{selectedQuick.adminNotes}</p>
+                  <p className="text-sm text-slate-700 bg-amber-50 border border-amber-100 rounded-xl p-3">{detailQuick.adminNotes}</p>
                 </div>
               )}
-              {selectedQuick.imageUrls?.length > 0 && (
+              {detailQuick.imageUrls?.length > 0 && (
                 <div>
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Photos ({selectedQuick.imageUrls.length})</p>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Photos ({detailQuick.imageUrls.length})</p>
                   <div className="flex flex-wrap gap-2">
-                    {selectedQuick.imageUrls.map((url: string, i: number) => (
+                    {detailQuick.imageUrls.map((url: string, i: number) => (
                       <div key={i} className="relative group w-20 h-20">
                         <PrivateImage apiPath={url} alt={`Photo ${i+1}`}
                           onClick={() => setQuickLightbox(url)}
@@ -735,20 +768,20 @@ export default function RepQuotations() {
         document.body
       )}
 
-      <BottomSheet isOpen={!!selected && !desktop} onClose={() => setSelected(null)} title={selected?.quotationNumber || 'Quotation'}>
-        {selected && (
+      <BottomSheet isOpen={!!detailQuotation && (!desktop || !!linkedId)} onClose={closeQuotation} title={detailQuotation?.quotationNumber || 'Quotation'}>
+        {detailQuotation && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-bold text-slate-900">{selected.quotationNumber}</p>
-                <p className="text-sm text-slate-500">{getCustomerDisplayName(selected)}</p>
+                <p className="font-bold text-slate-900">{detailQuotation.quotationNumber}</p>
+                <p className="text-sm text-slate-500">{getCustomerDisplayName(detailQuotation)}</p>
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold text-slate-900">{formatCurrency(selected.totalAmount)}</p>
-                <StatusBadge status={selected.status} type="quotations" />
+                <p className="text-lg font-bold text-slate-900">{formatCurrency(detailQuotation.totalAmount)}</p>
+                <StatusBadge status={detailQuotation.status} type="quotations" />
               </div>
             </div>
-            {selected.items?.length > 0 && (
+            {detailQuotation.items?.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-slate-600 mb-2">Items</p>
                 <div className="rounded-xl overflow-x-auto border border-slate-200">
@@ -762,17 +795,17 @@ export default function RepQuotations() {
                         <th className="px-3 py-2 text-right font-semibold text-slate-500 uppercase">Rate</th>
                         <th className="px-3 py-2 text-right font-semibold text-slate-500 uppercase">Disc %</th>
                         <th className="px-3 py-2 text-right font-semibold text-slate-500 uppercase">Disc Amt</th>
-                        {getIsTax(selected) !== false && <th className="px-3 py-2 text-right font-semibold text-slate-500 uppercase">Tax</th>}
+                        {getIsTax(detailQuotation) !== false && <th className="px-3 py-2 text-right font-semibold text-slate-500 uppercase">Tax</th>}
                         <th className="px-3 py-2 text-right font-semibold text-slate-500 uppercase">Line Gross</th>
                         <th className="px-3 py-2 text-right font-semibold text-slate-500 uppercase">Request Price</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {selected.items.map((item: any, idx: number) => {
+                      {detailQuotation.items.map((item: any, idx: number) => {
                         const rate = item.unitPrice || 0;
                         const qty = item.quantity || 0;
                         const discPct = item.discountPercent || 0;
-                        const isTax = getIsTax(selected);
+                        const isTax = getIsTax(detailQuotation);
                         const lineTaxRate = taxCodeToRate(item.taxCode);
                         const allIncRate = Math.round(rate * (1 + lineTaxRate) * 100) / 100;
                         const displayRate = isTax === false ? allIncRate : rate;
@@ -803,10 +836,10 @@ export default function RepQuotations() {
               </div>
             )}
 
-            {selected.rejectionReason && (
+            {detailQuotation.rejectionReason && (
               <div className="bg-red-50 rounded-xl p-3">
                 <p className="text-sm text-red-600">
-                  <strong>Rejected:</strong> {selected.rejectionReason}
+                  <strong>Rejected:</strong> {detailQuotation.rejectionReason}
                 </p>
               </div>
             )}
