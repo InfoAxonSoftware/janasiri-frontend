@@ -22,6 +22,7 @@ import MobileTileList from '../../components/common/MobileTileList';
 import StatusBadge from '../../components/common/StatusBadge';
 import { downloadQuickRequestPdf, downloadQuickRequestExcel } from '../../utils/quickRequestPdf';
 import RoleOrderTrash from '../../components/orders/RoleOrderTrash';
+import GuestOrderRepAssignment from '../../components/orders/GuestOrderRepAssignment';
 import GuestQuickOrderDetails, { parseGuestQuickOrderDetails } from '../../components/orders/GuestQuickOrderDetails';
 import { openPrivateFile, downloadPrivateFile } from '../../utils/fileAccess';
 
@@ -211,12 +212,12 @@ export default function CoordinatorOrders() {
     const rows = (quickData as any[]).map(r => ({
       _isQuick: true, _quick: r,
       id: r.id, orderNumber: r.requestNumber,
-      customerName: r.customerName, repName: r.createdBy === 'Quick Order Portal' ? 'Guest' : r.repName,
+      customerName: r.customerName, repName: r.createdBy === 'Quick Order Portal' ? (r.repName || 'Unassigned') : r.repName,
       orderDate: r.createdAt, status: r.status,
       items: r.createdBy === 'Quick Order Portal' ? parseGuestQuickOrderDetails(r.details || '').items : [], totalAmount: 0,
     }));
-    return status ? rows.filter(r => r.status === status) : rows;
-  }, [quickData, status]);
+    return rows.filter(r => (!status || r.status === status) && (!repIdFilter || r._quick.repId === repIdFilter));
+  }, [quickData, status, repIdFilter]);
 
   const allRows = useMemo(() => {
     const merged = [...orders, ...quickOrderRows];
@@ -533,7 +534,7 @@ export default function CoordinatorOrders() {
                                 </div>
                               </td>
                               <td className="px-4 py-3 border-r border-slate-100"><span className="text-slate-700 truncate block">{qr.customerName}</span></td>
-                              <td className="px-4 py-3 border-r border-slate-100"><span className="text-slate-500">{qr.createdBy === 'Quick Order Portal' ? 'Guest' : (qr.repName || '—')}</span></td>
+                              <td className="px-4 py-3 border-r border-slate-100"><span className="text-slate-500">{qr.createdBy === 'Quick Order Portal' ? (qr.repName || 'Unassigned') : (qr.repName || '—')}</span></td>
                               <td className="px-3 py-3 text-center border-r border-slate-100"><span className="inline-flex min-w-7 items-center justify-center rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold tabular-nums text-slate-600">{qr.createdBy === 'Quick Order Portal' ? parseGuestQuickOrderDetails(qr.details || '').items.length : '—'}</span></td>
                               <td className="px-4 py-3 text-right border-r border-slate-100"><span className="text-slate-400">—</span></td>
                               <td className="px-4 py-3 text-right border-r border-slate-100 whitespace-nowrap"><span className="text-slate-500">{formatDateTime(qr.createdAt)}</span></td>
@@ -580,7 +581,7 @@ export default function CoordinatorOrders() {
                                           </div>
                                         )}
                                       </div>
-                                      <div className="shrink-0 space-y-2 min-w-[190px]">
+                                      <div className="w-[210px] shrink-0 space-y-2">
                                         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Update Status</p>
                                         <div className="flex flex-col gap-1.5" onClick={e => e.stopPropagation()}>
                                           {FILTER_ORDER_STATUSES.map(s => (
@@ -590,6 +591,7 @@ export default function CoordinatorOrders() {
                                             </button>
                                           ))}
                                         </div>
+                                        {qr.createdBy === 'Quick Order Portal' && <GuestOrderRepAssignment key={qr.id + String(qr.repId)} request={qr} compact />}
                                         <div className="flex gap-1.5 mt-1" onClick={e => e.stopPropagation()}>
                                           <button onClick={() => downloadQuickRequestPdf(qr)} className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 text-xs font-semibold rounded-lg text-red-600 hover:bg-red-50 border border-red-100 transition">
                                             <Download className="w-3 h-3" /> PDF
@@ -760,13 +762,19 @@ export default function CoordinatorOrders() {
                     <span>{formatDateTime(row.orderDate)}</span>
                     <span>Rep: {row.repName || ''}</span>
                   </div>
+                  {row._isQuick && row._quick?.createdBy === 'Quick Order Portal' && expandedOrderId === row.id && (
+                    <div className="mb-3 space-y-3" onClick={e => e.stopPropagation()}>
+                      <GuestQuickOrderDetails request={row._quick} />
+                      <GuestOrderRepAssignment key={row.id + String(row._quick.repId)} request={row._quick} />
+                    </div>
+                  )}
                   <div className="flex justify-between items-center pt-2.5 border-t border-slate-50">
                     <span className="font-bold text-slate-900">{row._isQuick ? '—' : formatCurrency(row.totalAmount)}</span>
                     <ChevronRight className="w-4 h-4 text-slate-400" />
                   </div>
                 </div>
               )}
-              onTileClick={(row: any) => !row._isQuick && navigate(`/coordinator/orders/${row.id}`)}
+              onTileClick={(row: any) => row._isQuick ? (row._quick?.createdBy === 'Quick Order Portal' && setExpandedOrderId(p => p === row.id ? null : row.id)) : navigate(`/coordinator/orders/${row.id}`)}
             />
           )}
         </>

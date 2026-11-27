@@ -1,3 +1,4 @@
+import { getGuestAssignmentRoute } from '../../utils/guestAssignmentNotification';
 import { DeleteNotificationButton, ClearNotificationActions } from '../../components/common/NotificationDeleteActions';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -47,7 +48,9 @@ export default function RepNotifications() {
 
   const handleClick = (n: Notification) => {
     if (!n.isRead) markReadMut.mutate(n.id);
-    if (n.metadata?.orderId) navigate(`/rep/orders/${n.metadata.orderId}`);
+    const route = getGuestAssignmentRoute(n);
+    if (route) navigate(route);
+    else if (n.metadata?.orderId) navigate(`/rep/orders/${n.metadata.orderId}`);
   };
 
   const formatTime = (dateStr: string | undefined) => {

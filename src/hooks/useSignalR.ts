@@ -237,6 +237,8 @@ export function useSignalR() {
           queryKey: ['unread-count', user?.id],
         });
 
+        queryClient.invalidateQueries({ queryKey: ['rep-assigned-guest-order', user?.id] });
+
         // Quick request related data.
         queryClient.invalidateQueries({
           queryKey: ['rep-quick-orders'],

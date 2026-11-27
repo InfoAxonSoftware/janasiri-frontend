@@ -1,0 +1,80 @@
+/* Fit both login panels to the available browser viewport, not screen width alone. */
+@media (min-width: 1024px) {
+  .janasiri-login {
+    height: auto;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+  .janasiri-login-grid {
+    min-height: 100dvh;
+    height: auto;
+  }
+  .janasiri-login-brand {
+    height: auto;
+    min-height: 100dvh;
+    padding-block: clamp(14px, 2.6vh, 28px);
+    gap: clamp(10px, 1.8vh, 20px);
+  }
+  .janasiri-login-brand-content {
+    flex: 1 0 auto;
+    min-height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow: visible;
+    padding-block: 0;
+    margin-block: 0;
+  }
+  .janasiri-login-truck {
+    margin-bottom: clamp(6px, 1.4vh, 14px);
+  }
+  .janasiri-login-truck img {
+    height: clamp(52px, 10vh, 112px);
+  }
+  .janasiri-login-headline {
+    font-size: clamp(28px, min(3.35vw, 6.1vh), 58px);
+  }
+  .janasiri-login-intro {
+    margin-top: clamp(8px, 1.7vh, 16px);
+    line-height: 1.55;
+  }
+  .janasiri-login-locations {
+    margin-top: clamp(12px, 2.7vh, 28px);
+  }
+  .janasiri-login-location-heading {
+    margin-bottom: clamp(6px, 1.4vh, 12px);
+  }
+  .janasiri-login-info-card {
+    min-height: 0;
+    gap: clamp(8px, 1.3vh, 12px);
+    padding: clamp(8px, 1.5vh, 14px);
+  }
+  .janasiri-login-info-card p {
+    line-height: 1.45;
+  }
+  .janasiri-login-footer {
+    padding-top: clamp(8px, 1.6vh, 16px);
+    font-size: clamp(10px, 1.3vh, 12px);
+  }
+  .janasiri-login-signin {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+}
+@media (min-width: 1024px) and (max-height: 720px) {
+  .janasiri-login-brand { padding-inline: clamp(24px, 3vw, 44px); }
+  .janasiri-login-truck img { height: clamp(46px, 8.5vh, 72px); }
+  .janasiri-login-info-card h3,
+  .janasiri-login-info-card p { font-size: 12px; }
+  .janasiri-login-signin { padding-block: 16px; }
+  .janasiri-login-signin form { --tw-space-y-reverse: 0; }
+  .janasiri-login-signin form > :not(:last-child) { margin-block-end: 12px; }
+  .janasiri-login-signin form input,
+  .janasiri-login-signin form button[type="submit"] { height: 46px; }
+  .janasiri-login-signin-heading { margin-bottom: 16px; }
+  .janasiri-login-signin-heading h2 { font-size: 36px; }
+  .janasiri-login-register { margin-top: 16px; padding-top: 14px; }
+  .janasiri-login-register a[href="/quick-order"] { margin-top: 10px; padding-block: 9px; }
+  .janasiri-login-hotline { margin-top: 12px; }
+}
